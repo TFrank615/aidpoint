@@ -1,19 +1,45 @@
-# AidPoint
+# RMS Call Tracker
 
-AidPoint helps dispatchers and fire/EMS personnel find the nearest mutual aid resources to an incident location.
+A static Fire/EMS incident tracker backed by Firebase Authentication and Firestore.
 
-Double-click **Start AidPoint.cmd** to open AidPoint in your browser. Keep the launcher window open while using the app. Node.js is required and is already installed on this computer.
+## Files to publish
 
-Update `fd.addresses.csv` in this directory whenever needed, then refresh the browser page. The app reads the current file on every page load with caching disabled.
+Upload all files in this folder to the root of the GitHub repository:
 
-The launcher starts a server accessible only on this computer. It serves the HTML, CSV, app icons, and app manifest. Browsers require this to automatically read the CSV; opening `index.html` directly displays instructions to use the launcher. Google Sheets and embedded station copies are no longer used.
+- `index.html` — incident entry, history, CSV import/export, and statistics
+- `main.js` — application and Firebase logic
+- `ems-dispositions.js` — shared EMS disposition options and formatting
+- `styles.css` — shared interface styles
+- `config.html` — configuration screen
+- `kiosk.html` — read-only statistics display
+- `icon.png` — application icon
 
-CSV columns must be `department,address,coordinates`. Quote any address containing commas, and quote coordinates as `"latitude,longitude"`. Invalid or missing coordinates are skipped.
+If GitHub Pages is enabled for the repository, the main tracker opens at the site root. The supporting screens are available at `/config.html` and `/kiosk.html`.
 
-An internet connection is still needed for the map, browser libraries, address lookup, and driving estimates.
+## Firebase requirements
 
-The app includes an iPhone Home Screen icon and Android icons, including an adaptive icon, with the name **AidPoint**. The app manifest requests a standalone window. See `icon-design.md` for the artwork prompt and platform references. Deploy the HTML, CSV, manifest, and three icon PNG files together when hosting the app.
+Anonymous Authentication must be enabled in the `pleasant-fire` Firebase project. Firestore must allow the intended users to access the `artifacts/pleasant-township-app/public/data` path.
 
-For phone use, AidPoint needs a phone-accessible web address; the desktop launcher address is limited to this computer. Use HTTPS when hosting it for installation. Home Screen metadata does not provide offline maps or routing, and no service worker caches station data.
+The Firebase web configuration in these static files identifies the Firebase project; it is not an administrator secret. Access control must be enforced with Firebase Authentication and Firestore Security Rules.
 
-Run the behavior checks with `node --test tests/station-locator.test.cjs`. These checks use mocked browser libraries and network responses; they do not verify live external services.
+Before public deployment, review the Firestore rules carefully. In particular, do not grant unrestricted public writes to incident or configuration data. If configuration changes should be limited to administrators, enforce that in Security Rules rather than relying on the unlinked `config.html` address.
+
+## Deployment note
+
+This version uses Tailwind's browser CDN to keep deployment file-only. It works on GitHub Pages, but the browser console will show Tailwind's production advisory. For a larger or long-term deployment, the next maintenance step should be compiling Tailwind into a local minified stylesheet so the app is less dependent on third-party CDNs.
+
+## CSV format
+
+Imports expect these columns in this order:
+
+`Incident #, Date/Time, Nature, Address, Type, Units, Mutual Aid, Disposition, Notes`
+
+EMS and Both calls allow multiple dispositions. Select all that apply in the new-call or edit form. Multiple selections use a semicolon in the existing Disposition column, for example `TRANSPORT; 2ND RUN`. Older single-disposition records remain supported. Filters match any selected disposition; disposition statistics count each selection, while crew totals count each incident once.
+
+Date/time values must use `MM/DD/YYYY HH:MM` with 24-hour time. Incident numbers must follow `YYPL#####` or `YYHT#####`. Invalid rows are skipped and counted in the confirmation message.
+
+## Verification
+
+Run `node --test tests/ems-dispositions.test.mjs` for disposition compatibility and text/CSV formatting checks.
+
+Run `node tests/ems-dispositions.browser.cjs` with Playwright available to Node and Microsoft Edge installed for the browser workflow checks. Set `PLAYWRIGHT_CHANNEL` to use another installed Chromium channel. These checks substitute sample data for Firebase, exercise creation, editing, validation, filters, CSV export/import, and both statistics screens, and never write to the live database.

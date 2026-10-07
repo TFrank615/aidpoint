@@ -3,599 +3,597 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AidPoint — Mutual Aid Finder</title>
-    <meta name="theme-color" content="#0b1f65">
-    <meta name="apple-mobile-web-app-title" content="AidPoint">
+    <title>Fire/EMS Call Tracker</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="PLEASANT">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-    <link rel="manifest" href="./manifest.webmanifest">
     
-    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- LeafletJS for the interactive map -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    
-    <!-- PapaParse for parsing station CSV data -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    
-    <!-- Lucide Icons for UI elements -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <style>
-        /* Custom styles for the application */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevent body scroll */
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        #map {
-            height: 100%;
-            width: 100%;
-            z-index: 10;
-        }
-        #ui-panel {
-            width: calc(100% - 2rem);
-        }
-        .leaflet-popup-content-wrapper {
-            border-radius: 0.5rem;
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
 
-    <!-- The map will fill this container -->
-    <div id="map"></div>
-    
-    <!-- UI Panel that floats over the map -->
-    <div id="ui-panel" class="absolute top-4 left-4 z-20 bg-white rounded-xl shadow-lg p-4 md:p-6 w-[95%] max-w-md max-h-[calc(100vh-2rem)] flex flex-col">
-        <header class="text-center mb-4">
-            <h1 class="text-2xl font-bold text-gray-900">AidPoint</h1>
-            <p class="text-gray-600 mt-1 text-sm">Find the nearest mutual aid resources to an incident.</p>
-        </header>
-
-        <!-- Search Form -->
-        <div id="search-form" class="space-y-3 flex-shrink-0">
-            <div>
-                <label for="address-street-input" class="block text-sm font-medium text-gray-700">Incident Street Address</label>
-                <input type="text" id="address-street-input" placeholder="e.g., 123 Main St" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-50 shadow-lg">
+        <div class="max-w-[95%] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-truck-medical text-red-500 text-2xl"></i>
                 <div>
-                    <label for="address-city-input" class="block text-sm font-medium text-gray-700">City</label>
-                    <input type="text" id="address-city-input" placeholder="e.g., Springfield" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
-                </div>
-                <div>
-                    <label for="address-state-input" class="block text-sm font-medium text-gray-700">State</label>
-                    <input type="text" id="address-state-input" value="Ohio" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" disabled>
-                </div>
-                <div>
-                    <label for="address-zip-input" class="block text-sm font-medium text-gray-700">Zip Code</label>
-                    <input type="text" id="address-zip-input" placeholder="e.g., 45504" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                    <h1 class="font-bold text-lg sm:text-xl tracking-wide uppercase">RMS Call Tracker</h1>
+                    <div id="connectionStatus" class="text-xs text-yellow-500 flex items-center gap-1">
+                        <i class="fa-solid fa-circle text-[8px] animate-pulse"></i> Connecting...
+                    </div>
                 </div>
             </div>
-            <div class="flex space-x-2">
-                <button id="search-button" class="flex-grow bg-blue-600 text-white px-5 py-3 rounded-lg font-semibold hover:bg-blue-700 transition shadow-sm flex items-center justify-center" disabled>
-                    <span id="search-text">Search</span>
-                    <div id="search-loader" class="loader hidden"></div>
+            <div class="grid grid-cols-3 sm:flex gap-2 w-full sm:w-auto" role="tablist" aria-label="Tracker sections">
+                <button type="button" role="tab" aria-selected="true" aria-controls="tab-entry" onclick="switchTab('entry')" id="btn-entry" class="px-2 sm:px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition shadow-md border border-red-500 uppercase text-xs sm:text-sm tracking-wider">
+                    <i class="fa-solid fa-plus mr-1"></i> New Call
                 </button>
-                <button id="clear-button" class="hidden bg-gray-200 text-gray-700 px-5 py-3 rounded-lg font-semibold hover:bg-gray-300 transition shadow-sm">
-                    Clear
+                <button type="button" role="tab" aria-selected="false" aria-controls="tab-history" tabindex="-1" onclick="switchTab('history')" id="btn-history" class="px-2 sm:px-4 py-2 rounded-lg bg-gray-700 text-gray-300 font-medium hover:bg-gray-600 transition border border-gray-600 uppercase text-xs sm:text-sm tracking-wider">
+                    <i class="fa-solid fa-list mr-1"></i> History
+                </button>
+                <button type="button" role="tab" aria-selected="false" aria-controls="tab-stats" tabindex="-1" onclick="switchTab('stats')" id="btn-stats" class="px-2 sm:px-4 py-2 rounded-lg bg-gray-700 text-gray-300 font-medium hover:bg-gray-600 transition border border-gray-600 uppercase text-xs sm:text-sm tracking-wider">
+                    <i class="fa-solid fa-chart-pie mr-1"></i> Statistics
                 </button>
             </div>
         </div>
+    </nav>
 
-        <!-- Status/Info Messages -->
-        <div id="status-message" role="status" aria-live="polite" class="text-center p-4 rounded-lg bg-gray-50 text-gray-600 mt-4 flex-shrink-0">
-            Loading fire station data... Please wait.
-        </div>
+    <main class="flex-grow p-4 max-w-[95%] mx-auto w-full">
         
-        <!-- Results list container with its own scrollbar -->
-        <div id="results-container" class="mt-4 flex-grow overflow-y-auto pr-2">
-             <!-- Disclaimer -->
-            <div id="disclaimer" class="hidden text-sm p-3 mb-4 bg-yellow-100 text-yellow-800 rounded-lg flex items-start space-x-2">
-                 <div>
-                    <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        <div id="tab-entry" class="fade-in max-w-2xl mx-auto">
+            <div class="bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden">
+                <div class="bg-gray-750 p-6 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-gray-800 to-gray-750">
+                    <h2 class="text-xl font-semibold text-white uppercase tracking-wide"><i class="fa-solid fa-pen-to-square mr-2 text-red-500"></i>Enter Incident</h2>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-400 block uppercase tracking-wider">Next Incident ID</span>
+                        <span id="previewIncidentId" class="text-2xl font-mono font-bold text-green-400">Loading...</span>
+                    </div>
                 </div>
-                <p><strong>Disclaimer:</strong> Driving distance and time are estimates and do not account for traffic or other real-time conditions. For informational purposes only.</p>
+                
+                <form id="callForm" class="p-6 space-y-6">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="dispatchDate" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Dispatch Date</label>
+                            <input type="date" id="dispatchDate" required class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition uppercase">
+                        </div>
+                        <div>
+                            <label for="dispatchTime" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Dispatch Time (24h)</label>
+                            <input type="text" id="dispatchTime" required placeholder="HH:MM" maxlength="5" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" inputmode="numeric" oninput="autoFormatTime(this)" onblur="validateTime(this)" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition font-mono tracking-wider">
+                            <p class="text-xs text-gray-500 mt-1 uppercase">Format: HH:MM (00:00 - 23:59)</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="callNature" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Call Nature</label>
+                            <input list="natures" id="callNature" oninput="forceCaps(this)" required placeholder="SELECT OR TYPE..." class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition uppercase">
+                            <datalist id="natures"></datalist>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Response Type</label>
+                                <div class="grid grid-cols-3 gap-3">
+                                        <button type="button" aria-pressed="true" onclick="selectType('EMS')" id="btn-ems" class="flex items-center justify-center py-2.5 rounded-lg font-bold border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition uppercase">
+                                        <i class="fa-solid fa-star-of-life mr-2"></i>EMS
+                                    </button>
+                                        <button type="button" aria-pressed="false" onclick="selectType('Fire')" id="btn-fire" class="flex items-center justify-center py-2.5 rounded-lg font-bold border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition uppercase">
+                                        <i class="fa-solid fa-fire mr-2"></i>Fire
+                                    </button>
+                                        <button type="button" aria-pressed="false" onclick="selectType('Both')" id="btn-both" class="flex items-center justify-center py-2.5 rounded-lg font-bold border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition uppercase">
+                                        <i class="fa-solid fa-layer-group mr-2"></i>Both
+                                    </button>
+                                </div>
+                                <input type="hidden" id="responseType" value="EMS">
+                            </div>
+
+                            <fieldset id="emsDispositionSection" class="hidden animate-fade-in-down" aria-describedby="emsDispositionHint">
+                                <legend class="block text-sm font-medium text-blue-400 mb-1 uppercase tracking-wider">EMS Dispositions</legend>
+                                <p id="emsDispositionHint" class="text-xs text-gray-400 mb-2">Select all that apply. Choose at least one.</p>
+                                <div id="emsDisposition" class="grid grid-cols-2 gap-2"></div>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="address" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Address</label>
+                        <div class="relative">
+                            <input type="text" id="address" oninput="forceCaps(this)" required placeholder="1234 MAIN ST..." class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition uppercase" autocomplete="off">
+                            
+                            <div id="addressSuggestions" class="absolute w-full bg-gray-800 border border-gray-600 rounded-lg shadow-2xl z-50 hidden mt-1 max-h-48 overflow-y-auto">
+                                </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="units" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Units Responded</label>
+                        <div id="unitChips" class="flex flex-wrap gap-2 mb-2 uppercase">
+                            </div>
+                        <input type="text" id="units" oninput="forceCaps(this)" placeholder="E.G. E1, M2, C501..." class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition uppercase">
+                        <p class="text-xs text-gray-500 mt-1 uppercase">Tap chips above to add, or type manually.</p>
+                    </div>
+
+                    <div class="flex items-center gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <input type="checkbox" id="is76Sunday" name="is76Sunday" class="w-5 h-5 text-red-600 rounded focus:ring-red-500 border-gray-600 bg-gray-800">
+                        <label for="is76Sunday" class="font-medium text-white select-none cursor-pointer uppercase tracking-wide">76 Sunday?</label>
+                    </div>
+
+                    <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                        <div class="flex items-center gap-3 mb-4">
+                            <input type="checkbox" id="mutualAid" name="mutualAid" class="w-5 h-5 text-red-600 rounded focus:ring-red-500 border-gray-600 bg-gray-800" onchange="toggleMutualAid()">
+                            <label for="mutualAid" class="font-medium text-white select-none cursor-pointer uppercase tracking-wide">Mutual Aid Involved?</label>
+                        </div>
+
+                        <div id="mutualAidFields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 pl-8 border-l-2 border-red-500/30">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">Direction</label>
+                                <select id="mutualAidType" name="mutualAidType" onchange="handleMutualAidTypeChange()" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-1 focus:ring-red-500 uppercase">
+                                    <option value="Given">Given (To)</option>
+                                    <option value="Received">Received (From)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">Department</label>
+                                <div id="deptChips" class="hidden flex flex-wrap gap-2 mb-2 transition-all uppercase">
+                                    </div>
+                                <input list="maDepts" type="text" id="mutualAidDept" name="mutualAidDept" oninput="forceCaps(this)" placeholder="DEPARTMENT NAME" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-1 focus:ring-red-500 uppercase">
+                                <datalist id="maDepts"></datalist>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="notes" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Notes (Optional)</label>
+                        <textarea id="notes" oninput="forceCaps(this)" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition uppercase"></textarea>
+                    </div>
+
+                    <div class="pt-4 flex items-center justify-end gap-4 border-t border-gray-700">
+                        <button type="button" onclick="resetForm()" class="text-gray-400 hover:text-white text-sm uppercase">Clear Form</button>
+                        <button type="submit" id="submitBtn" disabled class="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-70 text-white font-bold rounded-lg shadow-lg transform active:scale-95 transition flex items-center gap-2 uppercase tracking-wide">
+                            <span>Save Call Record</span>
+                            <i class="fa-solid fa-save"></i>
+                        </button>
+                    </div>
+                </form>
             </div>
-            <!-- Results list -->
-            <div id="results-list" class="space-y-3">
-                <!-- Results will be dynamically inserted here -->
+        </div>
+
+        <div id="tab-history" class="hidden fade-in space-y-6">
+            
+            <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 shadow-lg flex flex-col space-y-4">
+                
+                <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <button onclick="exportToCSV()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-4 py-2 rounded-lg border border-blue-500 transition flex items-center gap-2 uppercase shadow-md">
+                            <i class="fa-solid fa-download"></i>
+                            <span class="hidden sm:inline">Export CSV</span>
+                        </button>
+
+                        <label class="cursor-pointer bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium px-4 py-2 rounded-lg border border-gray-600 transition flex items-center gap-2 uppercase">
+                            <i class="fa-solid fa-file-csv"></i>
+                            <span class="hidden sm:inline">Import CSV</span>
+                            <input type="file" id="csvInput" accept=".csv" class="hidden" onchange="handleFileUpload(this)">
+                        </label>
+                        <span id="importStatus" class="text-xs text-gray-400 italic uppercase"></span>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <button onclick="toggleFilterPanel()" id="btn-toggle-filter" class="bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm px-4 py-2 rounded-lg border border-gray-600 transition uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-filter"></i> Filters
+                        </button>
+                        <input type="text" id="searchInput" oninput="forceCaps(this)" placeholder="SEARCH ADDRESS, NOTES, ID..." onkeyup="renderTable()" class="bg-gray-900 border border-gray-600 text-white text-sm rounded-lg px-4 py-2 w-full md:w-64 focus:ring-1 focus:ring-red-500 outline-none uppercase">
+                    </div>
+                </div>
+
+                <div id="filterPanel" class="hidden border-t border-gray-700 pt-4 animate-fade-in-down">
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        
+                        <div class="col-span-1 lg:col-span-2">
+                            <label class="block text-xs text-gray-500 uppercase font-bold mb-1">Date Range</label>
+                            <div class="flex gap-2">
+                                <input type="date" id="filterDateStart" onchange="renderTable()" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                                <span class="text-gray-500 self-center">-</span>
+                                <input type="date" id="filterDateEnd" onchange="renderTable()" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="filterDayOfWeek" class="block text-xs text-gray-500 uppercase font-bold mb-1">Day of Week</label>
+                            <select id="filterDayOfWeek" onchange="renderTable()" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                                <option value="">ALL DAYS</option>
+                                <option value="0">SUNDAY</option>
+                                <option value="1">MONDAY</option>
+                                <option value="2">TUESDAY</option>
+                                <option value="3">WEDNESDAY</option>
+                                <option value="4">THURSDAY</option>
+                                <option value="5">FRIDAY</option>
+                                <option value="6">SATURDAY</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 uppercase font-bold mb-1">Response Type</label>
+                            <select id="filterType" onchange="renderTable()" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                                <option value="">ALL TYPES</option>
+                                <option value="EMS">EMS</option>
+                                <option value="FIRE">FIRE</option>
+                                <option value="BOTH">BOTH</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 uppercase font-bold mb-1">Nature</label>
+                            <input type="text" id="filterNature" list="natures" oninput="forceCaps(this); renderTable()" placeholder="ANY" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 uppercase font-bold mb-1">Disposition</label>
+                            <select id="filterDisposition" onchange="renderTable()" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                                <option value="">ALL</option>
+                                <option value="TRANSPORT">TRANSPORT</option>
+                                <option value="REFUSAL">REFUSAL</option>
+                                <option value="NO PATIENT">NO PATIENT</option>
+                                <option value="NO CREW/MA">NO CREW/MA</option>
+                                <option value="OTHER EMS XPORT">OTHER EMS XPORT</option>
+                                <option value="76 COVERAGE">76 COVERAGE</option>
+                                <option value="2ND RUN">2ND RUN</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 uppercase font-bold mb-1">Mutual Aid</label>
+                            <select id="filterMutual" onchange="renderTable()" class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                                <option value="">ANY</option>
+                                <option value="YES">YES (ANY)</option>
+                                <option value="NO">NO</option>
+                                <option value="GIVEN">GIVEN</option>
+                                <option value="RECEIVED">RECEIVED</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 uppercase font-bold mb-1">Units</label>
+                            <input type="text" id="filterUnits" oninput="forceCaps(this); renderTable()" placeholder="CONTAINS..." class="w-full bg-gray-900 border border-gray-600 rounded px-2 py-1 text-xs text-white uppercase">
+                        </div>
+
+                    </div>
+                    <div class="flex justify-end mt-4">
+                        <button onclick="resetFilters()" class="text-xs text-red-400 hover:text-red-300 uppercase font-bold">Reset Filters</button>
+                    </div>
+                </div>
             </div>
+
+            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col h-[650px]">
+                <div class="p-4 border-b border-gray-700 bg-gray-800 flex justify-between items-center">
+                    <h3 class="font-bold text-lg uppercase tracking-wide">Call Log</h3>
+                    <span id="recordCount" class="text-xs text-gray-500 uppercase font-mono">0 Records</span>
+                </div>
+                
+                <div class="overflow-auto flex-grow">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-900 text-gray-400 text-xs uppercase sticky top-0 z-10">
+                            <tr>
+                                <th id="th-incident" role="button" tabindex="0" aria-sort="none" onclick="handleSort('incident')" class="p-4 font-medium tracking-wider sortable">
+                                    Incident # <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-datetime" role="button" tabindex="0" aria-sort="descending" onclick="handleSort('datetime')" class="p-4 font-medium tracking-wider sortable">
+                                    Date/Time <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-nature" role="button" tabindex="0" aria-sort="none" onclick="handleSort('nature')" class="p-4 font-medium tracking-wider sortable">
+                                    Nature <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-address" role="button" tabindex="0" aria-sort="none" onclick="handleSort('address')" class="p-4 font-medium tracking-wider sortable">
+                                    Address <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-type" role="button" tabindex="0" aria-sort="none" onclick="handleSort('type')" class="p-4 font-medium tracking-wider sortable">
+                                    Type <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-units" role="button" tabindex="0" aria-sort="none" onclick="handleSort('units')" class="p-4 font-medium tracking-wider sortable">
+                                    Units <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-mutual" role="button" tabindex="0" aria-sort="none" onclick="handleSort('mutual')" class="p-4 font-medium tracking-wider sortable">
+                                    Mutual Aid <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-disposition" role="button" tabindex="0" aria-sort="none" onclick="handleSort('disposition')" class="p-4 font-medium tracking-wider sortable">
+                                    Disposition <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                                <th id="th-notes" role="button" tabindex="0" aria-sort="none" onclick="handleSort('notes')" class="p-4 font-medium tracking-wider sortable">
+                                    Notes <i class="fa-solid fa-sort sort-icon"></i>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody" class="divide-y divide-gray-700 text-sm text-gray-300 uppercase cursor-pointer">
+                            </tbody>
+                    </table>
+                    <div id="emptyState" class="hidden p-10 text-center text-gray-500">
+                        <i class="fa-solid fa-filter text-4xl mb-3 opacity-50"></i>
+                        <p class="uppercase">No calls found matching filters.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-stats" class="hidden fade-in space-y-6">
+            
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <h2 class="text-xl font-bold text-white uppercase tracking-wide flex items-center">
+                    <i class="fa-solid fa-chart-pie mr-2 text-red-500"></i>
+                    <span id="statsTitle">2025 Statistics</span>
+                </h2>
+                <div class="flex items-center gap-2">
+                    <label class="text-xs text-gray-400 uppercase font-bold">Select Year:</label>
+                    <select id="statsYearSelect" onchange="handleStatsYearChange(this)" class="bg-gray-800 border border-gray-600 text-white text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2 uppercase font-bold min-w-[100px]">
+                        </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 class="text-gray-400 text-sm uppercase font-bold tracking-wider">Total Calls</h3>
+                    <p class="text-3xl font-bold text-white mt-1" id="stat-total">0</p>
+                </div>
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 class="text-gray-400 text-sm uppercase font-bold tracking-wider">Fire Runs</h3>
+                    <p class="text-3xl font-bold text-red-500 mt-1" id="stat-fire">0</p>
+                </div>
+                <div class="bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-lg">
+                    <h3 class="text-gray-400 text-sm uppercase font-bold tracking-wider">EMS Runs</h3>
+                    <p class="text-3xl font-bold text-blue-400 mt-1" id="stat-ems">0</p>
+                </div>
+            </div>
+
+            <div id="widget-monthly" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-6">
+                <h3 class="font-bold text-lg text-white mb-4 uppercase border-b border-gray-700 pb-2">Monthly Breakdown</h3>
+                <div id="stats-monthly" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div class="text-gray-500 text-sm italic">No data available</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <div id="widget-natures" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-6">
+                    <h3 class="font-bold text-lg text-white mb-4 uppercase border-b border-gray-700 pb-2">Top Call Natures</h3>
+                    <div id="stats-natures" class="space-y-3">
+                        <div class="text-gray-500 text-sm italic">No data available</div>
+                    </div>
+                </div>
+
+                <div id="widget-addresses" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-6">
+                    <h3 class="font-bold text-lg text-white mb-4 uppercase border-b border-gray-700 pb-2">Top Addresses</h3>
+                    <div id="stats-addresses" class="space-y-3">
+                        <div class="text-gray-500 text-sm italic">No data available</div>
+                    </div>
+                </div>
+
+                <div id="widget-mutual" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-6">
+                    <h3 class="font-bold text-lg text-white mb-4 uppercase border-b border-gray-700 pb-2">EMS Mutual Aid Breakdown</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold mb-1">Given (To)</span>
+                            <span id="stat-ma-given" class="text-3xl font-bold text-yellow-400 block mb-2">0</span>
+                            <div class="flex justify-center gap-3 text-xs border-t border-gray-700 pt-2">
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">DAY</span>
+                                    <span id="stat-ma-given-day" class="font-bold text-lg text-blue-400">0</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">VOL</span>
+                                    <span id="stat-ma-given-vol" class="font-bold text-lg text-orange-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold mb-1">Received (From)</span>
+                            <span id="stat-ma-received" class="text-3xl font-bold text-green-400 block mb-2">0</span>
+                            <div class="flex justify-center gap-3 text-xs border-t border-gray-700 pt-2">
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">DAY</span>
+                                    <span id="stat-ma-received-day" class="font-bold text-lg text-blue-400">0</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">VOL</span>
+                                    <span id="stat-ma-received-vol" class="font-bold text-lg text-orange-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h4 class="text-xs text-gray-400 uppercase font-bold mb-2">Most Frequent Depts</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="min-w-0">
+                            <h5 class="text-xs text-yellow-400 uppercase font-bold mb-2">Given (To)</h5>
+                            <ul id="stats-ma-depts-given" class="text-sm space-y-1 text-gray-300"></ul>
+                        </div>
+                        <div class="min-w-0">
+                            <h5 class="text-xs text-green-400 uppercase font-bold mb-2">Received (From)</h5>
+                            <ul id="stats-ma-depts-received" class="text-sm space-y-1 text-gray-300"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="widget-crew" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-6">
+                    <h3 class="font-bold text-lg text-white mb-4 uppercase border-b border-gray-700 pb-2">EMS Crew Analysis</h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold">Day Crew</span>
+                            <span id="stat-crew-day" class="text-2xl font-bold text-blue-400">0</span>
+                            <span id="stat-crew-day-pct" class="block text-xs text-gray-500 font-bold mt-1">0% RESP</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold">Volunteer</span>
+                            <span id="stat-crew-vol" class="text-2xl font-bold text-orange-400">0</span>
+                            <span id="stat-crew-vol-pct" class="block text-xs text-gray-500 font-bold mt-1">0% COVERED</span>
+                        </div>
+                        <div class="col-span-2 bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold">Combined</span>
+                            <span id="stat-crew-combined" class="text-2xl font-bold text-white">0</span>
+                            <span id="stat-crew-combined-pct" class="block text-xs text-gray-500 font-bold mt-1">0% RESP</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold">76 Coverage</span>
+                            <span id="stat-crew-76-coverage" class="text-2xl font-bold text-white">0</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-xs uppercase font-bold">76 Sunday</span>
+                            <span id="stat-crew-76-sunday" class="text-2xl font-bold text-white">0</span>
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/30 p-3 rounded border border-gray-700 text-xs text-gray-400">
+                        <p class="font-bold mb-1">SCHEDULE (EMS/BOTH ONLY):</p>
+                        <p id="stats-sched-text-wd">M-F: ...</p>
+                        <p id="stats-sched-text-we">S-S: ...</p>
+                        <p>All other times: Volunteer</p>
+                    </div>
+                </div>
+
+                <div id="widget-voldispo" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-6">
+                    <h3 class="font-bold text-lg text-white mb-4 uppercase border-b border-gray-700 pb-2">EMS Volunteer Dispositions</h3>
+                    <p class="text-xs text-gray-400 mb-3">Each selected disposition is counted. A call may appear in more than one category.</p>
+                    <div id="stats-vol-dispo" class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1 uppercase font-semibold">
+                                <span>2ND RUN</span>
+                                <span>0</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div class="bg-orange-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <div id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div class="bg-gray-800 w-full max-w-2xl rounded-xl shadow-2xl border border-gray-700 flex flex-col max-h-[90vh]">
+            
+            <div class="p-6 border-b border-gray-700 bg-gray-850 flex justify-between items-center">
+                <div class="w-full mr-4">
+                    <h2 id="editModalTitle" class="text-xl font-bold text-white uppercase">Edit Incident</h2>
+                    <div class="mt-2">
+                         <label for="edit_incidentNumber" class="text-xs text-gray-500 uppercase font-bold">Incident ID</label>
+                         <input type="text" id="edit_incidentNumber" class="bg-gray-900 border border-gray-600 rounded px-3 py-1 text-yellow-400 font-mono text-sm font-bold w-full focus:ring-1 focus:ring-yellow-500 outline-none uppercase" oninput="forceCaps(this)">
+                    </div>
+                </div>
+                <button type="button" id="editCloseButton" aria-label="Close edit dialog" onclick="closeEditModal()" class="text-gray-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-2xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-6">
+                
+                <input type="hidden" id="edit_docId">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="edit_dispatchDate" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Dispatch Date</label>
+                        <input type="date" id="edit_dispatchDate" required class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase">
+                    </div>
+                    <div>
+                        <label for="edit_dispatchTime" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Dispatch Time (24h)</label>
+                        <input type="text" id="edit_dispatchTime" required maxlength="5" pattern="([01]?[0-9]|2[0-3]):[0-5][0-9]" inputmode="numeric" oninput="autoFormatTime(this)" onblur="validateTime(this)" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition font-mono tracking-wider">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="edit_callNature" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Call Nature</label>
+                        <input list="natures" id="edit_callNature" required oninput="forceCaps(this)" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase">
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Response Type</label>
+                            <div class="grid grid-cols-3 gap-3">
+                                <button type="button" aria-pressed="false" onclick="selectEditType('EMS')" id="edit_btn-ems" class="flex items-center justify-center py-2.5 rounded-lg font-bold border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition uppercase text-xs">EMS</button>
+                                <button type="button" aria-pressed="false" onclick="selectEditType('Fire')" id="edit_btn-fire" class="flex items-center justify-center py-2.5 rounded-lg font-bold border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition uppercase text-xs">Fire</button>
+                                <button type="button" aria-pressed="false" onclick="selectEditType('Both')" id="edit_btn-both" class="flex items-center justify-center py-2.5 rounded-lg font-bold border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition uppercase text-xs">Both</button>
+                            </div>
+                            <input type="hidden" id="edit_responseType">
+                        </div>
+
+                        <fieldset id="edit_emsDispositionSection" class="hidden animate-fade-in-down" aria-describedby="edit_emsDispositionHint">
+                            <legend class="block text-sm font-medium text-blue-400 mb-1 uppercase tracking-wider">EMS Dispositions</legend>
+                            <p id="edit_emsDispositionHint" class="text-xs text-gray-400 mb-2">Select all that apply. Choose at least one.</p>
+                            <div id="edit_emsDisposition" class="grid grid-cols-2 gap-2"></div>
+                        </fieldset>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="edit_address" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Address</label>
+                    <input type="text" id="edit_address" required list="addressHistory" oninput="forceCaps(this)" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase" autocomplete="off">
+                </div>
+
+                <div>
+                    <label for="edit_units" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Units Responded</label>
+                    <div id="edit_unitChips" class="flex flex-wrap gap-2 mb-2 uppercase">
+                        </div>
+                    <input type="text" id="edit_units" oninput="forceCaps(this)" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase">
+                </div>
+
+                <div class="flex items-center gap-3 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                    <input type="checkbox" id="edit_is76Sunday" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-600 bg-gray-800">
+                    <label for="edit_is76Sunday" class="font-medium text-white select-none cursor-pointer uppercase tracking-wide">76 Sunday?</label>
+                </div>
+
+                <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                    <div class="flex items-center gap-3 mb-4">
+                        <input type="checkbox" id="edit_mutualAid" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-600 bg-gray-800" onchange="toggleEditMutualAid()">
+                        <label for="edit_mutualAid" class="font-medium text-white select-none cursor-pointer uppercase tracking-wide">Mutual Aid Involved?</label>
+                    </div>
+
+                    <div id="edit_mutualAidFields" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 pl-8 border-l-2 border-blue-500/30">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">Direction</label>
+                            <select id="edit_mutualAidType" onchange="handleEditMutualAidTypeChange()" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-1 focus:ring-blue-500 uppercase">
+                                <option value="Given">Given (To)</option>
+                                <option value="Received">Received (From)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-400 mb-1 uppercase">Department</label>
+                            <div id="edit_deptChips" class="hidden flex flex-wrap gap-2 mb-2 transition-all uppercase">
+                                </div>
+                            <input list="maDepts" type="text" id="edit_mutualAidDept" oninput="forceCaps(this)" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:ring-1 focus:ring-blue-500 uppercase">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="edit_notes" class="block text-sm font-medium text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
+                    <textarea id="edit_notes" oninput="forceCaps(this)" rows="3" class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase"></textarea>
+                </div>
+
+            </div>
+
+            <div class="p-6 border-t border-gray-700 bg-gray-850 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+                <button type="button" id="deleteCallButton" onclick="deleteCurrentCall()" class="px-5 py-2 rounded-lg bg-red-900/60 border border-red-700 text-red-200 font-bold hover:bg-red-800 disabled:opacity-60 disabled:cursor-not-allowed transition uppercase flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-trash"></i> Delete Call
+                </button>
+                <div class="flex flex-col-reverse sm:flex-row gap-3">
+                    <button type="button" onclick="closeEditModal()" class="px-6 py-2 rounded-lg bg-gray-700 text-gray-300 font-bold hover:bg-gray-600 transition uppercase">Cancel</button>
+                    <button type="button" onclick="saveEdit()" class="px-6 py-2 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg transition uppercase flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
 
+    <div id="toast" role="status" aria-live="polite" class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <i class="fa-solid fa-check-circle"></i>
+        <span id="toastMessage" class="uppercase font-bold text-sm">Action Successful</span>
+    </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- VARIABLES ---
-            const CSV_URL = './fd.addresses.csv';
-            let fireStations = [];
-            let map;
-            let userMarker;
-            let stationMarkers = [];
-            let isSearching = false;
-            let searchController;
-
-            // UI Elements
-            const addressStreetInput = document.getElementById('address-street-input');
-            const addressCityInput = document.getElementById('address-city-input');
-            const addressZipInput = document.getElementById('address-zip-input');
-            const searchButton = document.getElementById('search-button');
-            const searchLoader = document.getElementById('search-loader');
-            const searchText = document.getElementById('search-text');
-            const statusMessage = document.getElementById('status-message');
-            const resultsList = document.getElementById('results-list');
-            const disclaimer = document.getElementById('disclaimer');
-            const clearButton = document.getElementById('clear-button');
-            
-            // --- INITIALIZATION ---
-            
-            // Initialize the map, centered on Clark County, Ohio
-            map = L.map('map').setView([39.92, -83.81], 10);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-
-            loadAndProcessFireStations();
-
-            // --- EVENT LISTENERS ---
-            searchButton.addEventListener('click', handleSearch);
-            addressStreetInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
-            addressCityInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
-            addressZipInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
-            clearButton.addEventListener('click', handleClear);
-
-
-            // --- FUNCTIONS ---
-
-            /**
-             * Reads the current CSV from the same directory on every page load.
-             */
-            async function loadAndProcessFireStations() {
-                try {
-                    if (window.location.protocol === 'file:') {
-                        updateStatus('Open Start AidPoint.cmd to load the station list from this folder.', 'error');
-                        return;
-                    }
-                    const response = await fetchWithTimeout(CSV_URL, { cache: 'no-store' });
-                    if (!response.ok) throw new Error(`Station CSV returned HTTP ${response.status}.`);
-                    processStationCSV(await response.text());
-                } catch (error) {
-                    console.error('Error loading station CSV:', error);
-                    updateStatus(`Could not load fd.addresses.csv. ${error.message}`, 'error');
-                }
-            }
-
-            function processStationCSV(csv) {
-                const results = Papa.parse(csv, {
-                    header: true,
-                    skipEmptyLines: 'greedy',
-                    transformHeader: header => header.replace(/^\uFEFF/, '').trim().toLowerCase()
-                });
-                const requiredHeaders = ['department', 'address', 'coordinates'];
-                if (!requiredHeaders.every(header => results.meta.fields.includes(header))) {
-                    throw new Error('Station CSV must have department, address, and coordinates columns.');
-                }
-                if (results.errors.length) {
-                    throw new Error('The station CSV has invalid rows. Check its commas and quotation marks.');
-                }
-                const parsedStations = results.data.map(station => {
-                    const department = (station.department || '').trim();
-                    const address = (station.address || '').trim();
-                    const coordinates = (station.coordinates || '').trim();
-                    if (!department || !address || !coordinates) return null;
-                    const parts = coordinates.split(',');
-                    if (parts.length !== 2 || parts.some(part => !part.trim())) return null;
-                    const lat = Number(parts[0]);
-                    const lon = Number(parts[1]);
-                    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
-                    return { name: department, address, location: { lat, lon } };
-                }).filter(Boolean);
-
-                if (!parsedStations.length) throw new Error('The station CSV contains no valid stations.');
-                fireStations = parsedStations;
-                updateStatus(`Loaded ${fireStations.length} stations. Enter an incident address to begin.`, 'info');
-                searchButton.disabled = false;
-            }
-
-            async function fetchWithTimeout(url, options = {}) {
-                const controller = new AbortController();
-                const abort = () => controller.abort();
-                const signal = options.signal;
-                if (signal?.aborted) controller.abort();
-                signal?.addEventListener('abort', abort, { once: true });
-                const timeout = setTimeout(abort, 15000);
-                try {
-                    const response = await fetch(url, { ...options, signal: controller.signal });
-                    // Read the body before releasing the timeout, too.
-                    const body = await response.text();
-                    return { ok: response.ok, status: response.status, text: async () => body, json: async () => JSON.parse(body) };
-                } catch (error) {
-                    if (signal?.aborted) throw error;
-                    if (controller.signal.aborted) throw new Error('The request timed out. Please try again.');
-                    throw error;
-                } finally {
-                    clearTimeout(timeout);
-                    signal?.removeEventListener('abort', abort);
-                }
-            }
-            
-            /**
-             * Converts a street address to geographic coordinates using Nominatim API.
-             * @param {string} address The address to geocode.
-             * @returns {Promise<object|null>} A promise resolving to location object or null.
-             */
-            async function geocodeAddress(address, signal) {
-                // Bounding box for Clark County, Ohio to bias the search results.
-                // Format: lon_min,lat_min,lon_max,lat_max
-                const clarkCountyViewbox = '-84.05,39.75,-83.55,40.10';
-                const endpoint = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=${clarkCountyViewbox}`;
-                try {
-                    const response = await fetchWithTimeout(endpoint, { signal, headers: { 'Accept': 'application/json' }});
-                    if (!response.ok) {
-                        throw new Error(`Geocoding API returned an error: ${response.status}`);
-                    }
-                    const data = await response.json();
-                    if (data && data.length > 0 && Number.isFinite(Number(data[0].lat)) && Number.isFinite(Number(data[0].lon))) {
-                        return {
-                            lat: parseFloat(data[0].lat),
-                            lon: parseFloat(data[0].lon),
-                            displayName: data[0].display_name
-                        };
-                    } else {
-                        return null; // No results found
-                    }
-                } catch (error) {
-                    console.error('Geocoding error:', error);
-                    throw error;
-                }
-            }
-            
-            /**
-             * Main handler for the search functionality.
-             */
-            async function handleSearch() {
-                if (isSearching || searchButton.disabled || !fireStations.length) return;
-                const street = addressStreetInput.value.trim();
-                const city = addressCityInput.value.trim();
-                const zip = addressZipInput.value.trim();
-                const state = 'Ohio';
-
-                if (!street) {
-                    updateStatus('Please enter at least a street address.', 'error');
-                    return;
-                }
-
-                // Intelligently build the address string from provided parts
-                const addressParts = [street, city, [state, zip].filter(Boolean).join(' ')];
-                const address = addressParts.filter(Boolean).join(', ');
-
-
-                const controller = new AbortController();
-                searchController = controller;
-                toggleLoading(true);
-                clearPreviousResults();
-                clearButton.classList.remove('hidden');
-                updateStatus(`Searching for address: ${address}...`, 'info');
-
-                try {
-                    const userLocation = await geocodeAddress(address, controller.signal);
-                    if (controller.signal.aborted) return;
-                    if (!userLocation) {
-                        throw new Error('Could not find coordinates for the entered address.');
-                    }
-
-                    updateStatus('Address found. Calculating distances...', 'info');
-
-                    // Step 1: Calculate straight-line distance to all stations to find candidates
-                    const stationsWithDistance = fireStations.map(station => ({
-                        ...station,
-                        distance: haversineDistance(userLocation.lat, userLocation.lon, station.location.lat, station.location.lon)
-                    }));
-
-                    // Step 2: Sort by straight-line distance and take the closest 50
-                    stationsWithDistance.sort((a, b) => a.distance - b.distance);
-                    const candidateStations = stationsWithDistance.slice(0, 50);
-
-                    // Step 3: Get actual driving details for the candidates
-                    const stationsWithDrivingData = await getDrivingDetails(candidateStations, userLocation, controller.signal);
-                    if (controller.signal.aborted) return;
-
-                    // Step 4: Sort the final list by actual driving time
-                    stationsWithDrivingData.sort((a, b) => a.drivingTime - b.drivingTime);
-                    
-                    const closestStations = stationsWithDrivingData.slice(0, 10);
-
-                    if (closestStations.length > 0) {
-                        displayResults(closestStations);
-                        updateMap(closestStations, userLocation);
-                        disclaimer.classList.remove('hidden');
-                        clearButton.classList.remove('hidden');
-                    } else {
-                        updateStatus('Could not calculate driving routes for nearby stations. Please try a different address.', 'error');
-                    }
-
-                } catch (error) {
-                    if (controller.signal.aborted) return;
-                    console.error('Search error:', error);
-                    updateStatus(`Search error: ${error.message}`, 'error');
-                } finally {
-                    if (searchController === controller) {
-                        searchController = null;
-                        toggleLoading(false);
-                    }
-                }
-            }
-
-            /**
-             * Resets the form and results to the initial state.
-             */
-            function handleClear() {
-                searchController?.abort();
-                searchController = null;
-                toggleLoading(false);
-                // Clear input fields
-                addressStreetInput.value = '';
-                addressCityInput.value = '';
-                addressZipInput.value = '';
-
-                // Clear map and results list
-                clearPreviousResults();
-
-                // Reset map view to default
-                map.setView([39.92, -83.81], 10);
-
-                // Hide the clear button again
-                clearButton.classList.add('hidden');
-            }
-
-            /**
-             * Gets driving distance and time for a subset of stations using the OSRM Table service (Matrix API).
-             * This is much faster as it uses a single API call.
-             * @param {array} stations - An array of candidate station objects.
-             * @param {object} userLocation - The user's location {lat, lon}.
-             * @returns {Promise<array>} A promise resolving to stations with drivingDistance and drivingTime.
-             */
-            async function getDrivingDetails(stations, userLocation, signal) {
-                if (stations.length === 0) {
-                    return [];
-                }
-                updateStatus(`Calculating driving routes for ${stations.length} nearby stations...`, 'info');
-
-                // OSRM wants coordinates as {longitude},{latitude}
-                const userCoord = `${userLocation.lon},${userLocation.lat}`;
-                const stationCoords = stations.map(s => `${s.location.lon},${s.location.lat}`);
-                
-                // Combine all coordinates, with the user's location being the first (index 0)
-                const allCoords = [userCoord, ...stationCoords].join(';');
-
-                // The source is the user's location (index 0)
-                const sources = '0';
-                // The destinations are all the stations (indices 1 to N)
-                const destinations = Array.from({ length: stations.length }, (_, i) => i + 1).join(';');
-
-                const endpoint = `https://router.project-osrm.org/table/v1/driving/${allCoords}?sources=${sources}&destinations=${destinations}&annotations=duration,distance`;
-
-                try {
-                    const response = await fetchWithTimeout(endpoint, { signal });
-                    if (!response.ok) {
-                        throw new Error(`Routing service is unavailable (HTTP ${response.status}). Please try again.`);
-                    }
-                    const data = await response.json();
-
-                    if (data.code !== 'Ok') {
-                        throw new Error(`Routing API could not process the request: ${data.code}`);
-                    }
-
-                    // data.durations[0] is an array of travel times from source 0 to all destinations
-                    // data.distances[0] is an array of distances from source 0 to all destinations
-                    const durations = data.durations?.[0];
-                    const distances = data.distances?.[0];
-                    if (!Array.isArray(durations) || !Array.isArray(distances) || durations.length !== stations.length || distances.length !== stations.length) {
-                        throw new Error('Routing service returned incomplete driving data. Please try again.');
-                    }
-
-                    const stationsWithDriving = stations.map((station, index) => {
-                        // If a route is not found, OSRM returns null. Handle this.
-                        if (!Number.isFinite(durations[index]) || !Number.isFinite(distances[index]) || durations[index] < 0 || distances[index] < 0) {
-                            return null;
-                        }
-
-                        return {
-                            ...station,
-                            drivingTime: durations[index] / 60, // seconds to minutes
-                            drivingDistance: distances[index] * 0.000621371, // meters to miles
-                        };
-                    }).filter(s => s !== null); // Filter out stations for which no route was found
-
-                    return stationsWithDriving;
-
-                } catch (error) {
-                    console.error('Routing Matrix API error:', error);
-                    throw error;
-                }
-            }
-
-            /**
-             * Calculates the Haversine (straight-line) distance between two points on Earth.
-             * @returns {number} The distance in miles.
-             */
-            function haversineDistance(lat1, lon1, lat2, lon2) {
-                const R = 3958.8; // Radius of Earth in miles
-                const dLat = (lat2 - lat1) * Math.PI / 180;
-                const dLon = (lon2 - lon1) * Math.PI / 180;
-                const a =
-                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                return R * c;
-            }
-
-            /**
-             * Displays the closest stations in the results list.
-             */
-            function displayResults(stations) {
-                resultsList.innerHTML = '';
-                if (stations.length === 0) {
-                    updateStatus('No nearby stations with valid driving routes were found.', 'info');
-                    return;
-                }
-
-                statusMessage.style.display = 'none';
-
-                const fragment = document.createDocumentFragment();
-                stations.forEach((station, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'p-4 border rounded-lg hover:bg-gray-50 transition cursor-pointer';
-                    div.innerHTML = `
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <h3 class="font-bold text-lg text-blue-700">${index + 1}. ${escapeHTML(station.name)}</h3>
-                                <p class="text-gray-600 text-sm">${escapeHTML(station.address)}</p>
-                            </div>
-                            <div class="text-right ml-4">
-                                <p class="text-xl font-semibold text-gray-800">${station.drivingDistance.toFixed(1)} mi</p>
-                                <p class="text-sm text-gray-500">${station.drivingTime.toFixed(0)} min drive</p>
-                            </div>
-                        </div>
-                    `;
-                    div.addEventListener('click', () => {
-                        map.setView([station.location.lat, station.location.lon], 15);
-                        // Find the correct marker to open popup
-                        const correspondingMarker = stationMarkers.find(m => 
-                            m.getLatLng().lat === station.location.lat && m.getLatLng().lng === station.location.lon
-                        );
-                        if (correspondingMarker) {
-                            correspondingMarker.openPopup();
-                        }
-                    });
-                    fragment.appendChild(div);
-                });
-                resultsList.appendChild(fragment);
-            }
-
-            /**
-             * Updates the map with markers for the user and stations.
-             */
-            function updateMap(stations, userLocation) {
-                // Custom Icons
-                const userIcon = L.divIcon({
-                    html: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
-                    className: 'bg-transparent',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32]
-                });
-                 const fireStationIcon = L.divIcon({
-                    html: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#c2410c" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-flame"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
-                    className: 'bg-transparent',
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 32],
-                 });
-
-                // Add user marker
-                userMarker = L.marker([userLocation.lat, userLocation.lon], { icon: userIcon })
-                    .addTo(map)
-                    .bindPopup(`<b>Incident Location</b><br>${escapeHTML(userLocation.displayName)}`)
-                    .openPopup();
-
-                // Add station markers
-                const bounds = [[userLocation.lat, userLocation.lon]];
-                stations.forEach((station, index) => {
-                    const marker = L.marker([station.location.lat, station.location.lon], { icon: fireStationIcon })
-                        .addTo(map)
-                        .bindPopup(`<b>${index + 1}. ${escapeHTML(station.name)}</b><br>${escapeHTML(station.address)}<br>~${station.drivingDistance.toFixed(1)} miles / ${station.drivingTime.toFixed(0)} min drive`);
-                    stationMarkers.push(marker);
-                    bounds.push([station.location.lat, station.location.lon]);
-                });
-                
-                // Fit map to show all markers
-                map.fitBounds(bounds, { padding: [50, 50] });
-            }
-
-            /**
-             * Clears results from the list and map.
-             */
-            function clearPreviousResults() {
-                resultsList.innerHTML = '';
-                disclaimer.classList.add('hidden');
-                statusMessage.style.display = 'block';
-                statusMessage.textContent = 'Enter an incident address to begin.';
-                statusMessage.className = 'text-center p-4 rounded-lg bg-gray-50 text-gray-600';
-                
-                if (userMarker) {
-                    map.removeLayer(userMarker);
-                    userMarker = null;
-                }
-                stationMarkers.forEach(marker => map.removeLayer(marker));
-                stationMarkers = [];
-            }
-
-            function escapeHTML(value) {
-                return String(value).replace(/[&<>"']/g, character => ({
-                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-                })[character]);
-            }
-
-            /**
-             * Toggles the loading state of the search button.
-             */
-            function toggleLoading(isLoading) {
-                isSearching = isLoading;
-                searchButton.disabled = isLoading || !fireStations.length;
-                if (isLoading) {
-                    searchText.classList.add('hidden');
-                    searchLoader.classList.remove('hidden');
-                } else {
-                    searchText.classList.remove('hidden');
-                    searchLoader.classList.add('hidden');
-                }
-            }
-            
-            /**
-             * Updates the status message banner.
-             * @param {string} message - The message to display.
-             * @param {'info'|'error'} type - The type of message.
-             */
-            function updateStatus(message, type) {
-                statusMessage.textContent = message;
-                statusMessage.style.display = 'block';
-                if (type === 'error') {
-                    statusMessage.className = 'text-center p-4 rounded-lg bg-red-100 text-red-800';
-                } else {
-                    statusMessage.className = 'text-center p-4 rounded-lg bg-blue-100 text-blue-800';
-                }
-            }
-        });
-    </script>
-
+    <script type="module" src="main.js?v=20260930-1"></script>
 </body>
 </html>
-
-
-

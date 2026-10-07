@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Department Stats Kiosk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Force fixed full screen, no scrollbars */
+        body, html {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen w-screen flex flex-col overflow-hidden">
+
+    <nav class="bg-gray-800 border-b border-gray-700 p-5 shadow-xl flex-none z-50">
+        <div class="max-w-[98%] mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <i class="fa-solid fa-chart-pie text-red-500 text-4xl"></i>
+                <div>
+                    <h1 class="font-bold text-3xl tracking-wide uppercase leading-none">Live Department Statistics</h1>
+                    <div id="connectionStatus" class="text-base text-yellow-500 flex items-center gap-2 mt-1">
+                        <i class="fa-solid fa-circle text-[10px] animate-pulse"></i> Connecting...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="hidden md:block">
+                 <h2 id="statsTitle" class="text-4xl font-bold text-gray-500 opacity-30 uppercase tracking-[0.2em]">Statistics</h2>
+            </div>
+            
+            </div>
+    </nav>
+
+    <main class="flex-grow p-6 w-full max-w-[98%] mx-auto fade-in flex flex-col min-h-0">
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 flex-none">
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg flex items-center justify-between relative overflow-hidden group">
+                <div class="absolute right-0 top-0 h-full w-2 bg-white"></div>
+                <div>
+                    <h3 class="text-gray-400 text-lg uppercase font-bold tracking-wider mb-2">Total Calls</h3>
+                    <p class="text-6xl font-bold text-white" id="stat-total">0</p>
+                </div>
+                <i class="fa-solid fa-phone text-gray-700 text-7xl opacity-20 group-hover:opacity-30 transition-opacity"></i>
+            </div>
+            
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg flex items-center justify-between relative overflow-hidden group">
+                <div class="absolute right-0 top-0 h-full w-2 bg-red-600"></div>
+                <div>
+                    <h3 class="text-gray-400 text-lg uppercase font-bold tracking-wider mb-2">Fire Runs</h3>
+                    <p class="text-6xl font-bold text-red-500" id="stat-fire">0</p>
+                </div>
+                <i class="fa-solid fa-fire text-red-900 text-7xl opacity-20 group-hover:opacity-30 transition-opacity"></i>
+            </div>
+            
+            <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-lg flex items-center justify-between relative overflow-hidden group">
+                <div class="absolute right-0 top-0 h-full w-2 bg-blue-500"></div>
+                <div>
+                    <h3 class="text-gray-400 text-lg uppercase font-bold tracking-wider mb-2">EMS Runs</h3>
+                    <p class="text-6xl font-bold text-blue-400" id="stat-ems">0</p>
+                </div>
+                <i class="fa-solid fa-star-of-life text-blue-900 text-7xl opacity-20 group-hover:opacity-30 transition-opacity"></i>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+            
+            <div class="flex flex-col gap-6 h-full min-h-0">
+                <div id="widget-natures" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-5 flex-1 flex flex-col min-h-0">
+                    <h3 class="font-bold text-xl text-white mb-3 uppercase border-b border-gray-700 pb-2 flex-none flex items-center gap-3">
+                        <i class="fa-solid fa-list-ol text-gray-500"></i> Top Natures
+                    </h3>
+                    <div id="stats-natures" class="space-y-3 overflow-hidden flex-1">
+                        <div class="text-gray-500 text-base italic">Loading...</div>
+                    </div>
+                </div>
+
+                <div id="widget-addresses" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-5 flex-1 flex flex-col min-h-0">
+                    <h3 class="font-bold text-xl text-white mb-3 uppercase border-b border-gray-700 pb-2 flex-none flex items-center gap-3">
+                        <i class="fa-solid fa-map-location-dot text-gray-500"></i> Frequent Locations
+                    </h3>
+                    <div id="stats-addresses" class="space-y-3 overflow-hidden flex-1">
+                        <div class="text-gray-500 text-base italic">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 h-full min-h-0">
+                <div id="widget-crew" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-5 flex-none">
+                    <h3 class="font-bold text-xl text-white mb-3 uppercase border-b border-gray-700 pb-2 flex items-center gap-3">
+                        <i class="fa-solid fa-users text-gray-500"></i> EMS Crew Analysis
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">Day Crew</span>
+                            <span id="stat-crew-day" class="text-5xl font-bold text-blue-400">0</span>
+                            <span id="stat-crew-day-pct" class="block text-sm text-gray-500 font-bold mt-1">0% COVERED</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">Volunteer</span>
+                            <span id="stat-crew-vol" class="text-5xl font-bold text-orange-400">0</span>
+                            <span id="stat-crew-vol-pct" class="block text-sm text-gray-500 font-bold mt-1">0% COVERED</span>
+                        </div>
+                        <div class="col-span-2 bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">Combined</span>
+                            <span id="stat-crew-combined" class="text-5xl font-bold text-white">0</span>
+                            <span id="stat-crew-combined-pct" class="block text-sm text-gray-500 font-bold mt-1">0% COVERED</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">76 Coverage</span>
+                            <span id="stat-crew-76-coverage" class="text-5xl font-bold text-white">0</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center">
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">76 Sunday</span>
+                            <span id="stat-crew-76-sunday" class="text-5xl font-bold text-white">0</span>
+                        </div>
+                    </div>
+                    <div class="bg-gray-900/30 p-3 rounded border border-gray-700 text-sm text-gray-400">
+                        <p id="stats-sched-text-wd">M-F: ...</p>
+                        <p id="stats-sched-text-we">S-S: ...</p>
+                    </div>
+                </div>
+
+                <div id="widget-voldispo" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-5 flex-1 flex flex-col min-h-0">
+                    <h3 class="font-bold text-xl text-white mb-3 uppercase border-b border-gray-700 pb-2 flex-none flex items-center gap-3">
+                        <i class="fa-solid fa-clipboard-check text-gray-500"></i> Volunteer Outcomes
+                    </h3>
+                    <div id="stats-vol-dispo" class="space-y-3 overflow-hidden flex-1">
+                        <div class="text-gray-500 text-base italic">Loading...</div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">Each selected disposition is counted. Calls may appear in multiple categories.</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6 h-full min-h-0">
+                 <div id="widget-mutual" class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg p-5 flex-1 flex flex-col min-h-0">
+                    <h3 class="font-bold text-xl text-white mb-3 uppercase border-b border-gray-700 pb-2 flex-none flex items-center gap-3">
+                        <i class="fa-solid fa-handshake text-gray-500"></i> EMS Mutual Aid
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4 mb-6 flex-none">
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center relative overflow-hidden">
+                            <i class="fa-solid fa-arrow-right-from-bracket absolute top-2 right-2 text-gray-700 opacity-30 text-2xl"></i>
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">Given</span>
+                            <span id="stat-ma-given" class="text-4xl font-bold text-yellow-400 block mb-2">0</span>
+                            
+                            <div class="flex justify-center gap-3 text-xs border-t border-gray-700 pt-2">
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">DAY</span>
+                                    <span id="stat-ma-given-day" class="font-bold text-xl text-blue-400">0</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">VOL</span>
+                                    <span id="stat-ma-given-vol" class="font-bold text-xl text-orange-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-900/50 p-4 rounded-lg border border-gray-700 text-center relative overflow-hidden">
+                            <i class="fa-solid fa-arrow-right-to-bracket absolute top-2 right-2 text-gray-700 opacity-30 text-2xl"></i>
+                            <span class="block text-gray-400 text-sm uppercase font-bold mb-1">Received</span>
+                            <span id="stat-ma-received" class="text-4xl font-bold text-green-400 block mb-2">0</span>
+
+                            <div class="flex justify-center gap-3 text-xs border-t border-gray-700 pt-2">
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">DAY</span>
+                                    <span id="stat-ma-received-day" class="font-bold text-xl text-blue-400">0</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500 block text-[10px]">VOL</span>
+                                    <span id="stat-ma-received-vol" class="font-bold text-xl text-orange-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h4 class="text-sm text-gray-400 uppercase font-bold mb-2 flex-none">Top Partners</h4>
+                    <div class="grid grid-cols-2 gap-4 overflow-hidden flex-1">
+                        <div class="min-w-0">
+                            <h5 class="text-sm text-yellow-400 uppercase font-bold mb-2">Given (To)</h5>
+                            <ul id="stats-ma-depts-given" class="text-base space-y-2 text-gray-300"></ul>
+                        </div>
+                        <div class="min-w-0">
+                            <h5 class="text-sm text-green-400 uppercase font-bold mb-2">Received (From)</h5>
+                            <ul id="stats-ma-depts-received" class="text-base space-y-2 text-gray-300"></ul>
+                        </div>
+                    </div>
+                </div>
+             </div>
+
+        </div>
+
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getEmsDispositions } from './ems-dispositions.js';
+
+        // --- UPDATED CONFIG (pleasant-fire) ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyBsaM_8RjTsgaSOPrOkyaK1DXghCHumxkc",
+          authDomain: "pleasant-fire.firebaseapp.com",
+          projectId: "pleasant-fire",
+          storageBucket: "pleasant-fire.firebasestorage.app",
+          messagingSenderId: "107375626982",
+          appId: "1:107375626982:web:97eed5f81377b15eba8927",
+          measurementId: "G-TT4G7K37M2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        // Use consistent App ID 'pleasant-township-app'
+        const appId = 'pleasant-township-app';
+
+        // --- State ---
+        let allCalls = [];
+        let currentStatsYear = new Date().getFullYear();
+        let currentConfig = {
+            schedules: {},
+            noDayCrewDates: [], 
+            statsConfig: { 
+                showNatures: true,
+                showAddresses: true,
+                showMutual: true,
+                showCrew: true,
+                showVolDispo: true,
+                limit: 8 
+            }
+        };
+
+        function escapeHTML(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // --- Auth & Init ---
+        async function initApp() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth error:", error);
+                document.getElementById('connectionStatus').innerHTML = '<span class="text-red-500 uppercase font-bold">Offline</span>';
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('connectionStatus').innerHTML = '<span class="text-green-500 font-bold uppercase">Live</span>';
+                setupRealtimeListener();
+                loadConfiguration(); 
+            }
+        });
+
+        initApp();
+
+        // --- LOAD DYNAMIC OPTIONS ---
+        async function loadConfiguration() {
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'callTrackerConfig', 'options');
+                const snap = await getDoc(docRef);
+                
+                if (snap.exists()) {
+                    const data = snap.data();
+                    
+                    if (data.schedules) {
+                        currentConfig.schedules = { ...currentConfig.schedules, ...data.schedules };
+                    } else if (data.schedule) {
+                        currentConfig.schedules["2025"] = data.schedule;
+                    }
+
+                    // Load No Day Crew Dates
+                    if (data.noDayCrewDates && Array.isArray(data.noDayCrewDates)) {
+                        currentConfig.noDayCrewDates = data.noDayCrewDates;
+                    }
+
+                    if (data.stats) {
+                        currentConfig.statsConfig = { ...currentConfig.statsConfig, ...data.stats };
+                        // Force a higher limit for kiosk if not explicitly set high
+                        if(!data.stats.limit || data.stats.limit < 8) currentConfig.statsConfig.limit = 8;
+                    }
+                    
+                    updateStats();
+                }
+            } catch (e) {
+                console.error("Failed to load config options", e);
+            }
+        }
+
+        // --- Firestore Listener ---
+        function setupRealtimeListener() {
+            const q = collection(db, 'artifacts', appId, 'public', 'data', 'calls');
+
+            onSnapshot(q, (snapshot) => {
+                const calls = [];
+                snapshot.forEach((doc) => {
+                    calls.push({ id: doc.id, ...doc.data() });
+                });
+
+                allCalls = calls;
+                updateStats();
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                document.getElementById('connectionStatus').innerHTML = '<span class="text-red-500 uppercase">Data Error</span>';
+            });
+        }
+
+        // --- Rendering Logic ---
+        function updateStats() {
+            document.getElementById('statsTitle').textContent = `${currentStatsYear} STATISTICS`;
+
+            // Filter by the currently selected year state
+            const thisYearCalls = allCalls.filter(c => c.year === currentStatsYear);
+            
+            // 1. Basic Counts
+            document.getElementById('stat-total').textContent = thisYearCalls.length;
+            
+            const fireCount = thisYearCalls.filter(c => c.responseType === 'Fire' || c.responseType === 'Both').length;
+            const emsCount = thisYearCalls.filter(c => c.responseType === 'EMS' || c.responseType === 'Both').length;
+            
+            document.getElementById('stat-fire').textContent = fireCount;
+            document.getElementById('stat-ems').textContent = emsCount;
+
+            const config = currentConfig.statsConfig;
+            const limit = config.limit || 8;
+
+            // Load Schedule for Time-Based Calcs
+            let sched = { wdStart: 6, wdEnd: 18, weStart: 8, weEnd: 18 };
+            if (currentConfig.schedules && currentConfig.schedules[String(currentStatsYear)]) {
+                sched = currentConfig.schedules[String(currentStatsYear)];
+            }
+            const { wdStart, wdEnd, weStart, weEnd } = sched;
+
+            // Helper for Day Crew Check
+            const checkDayCrew = (c) => {
+                if (!c.dispatchDate || !c.dispatchTime) return false;
+                
+                // 1. CHECK EXCEPTION DATES FIRST
+                if (currentConfig.noDayCrewDates && currentConfig.noDayCrewDates.includes(c.dispatchDate)) {
+                    return false;
+                }
+
+                // 2. Standard Time Logic
+                try {
+                    const [y, m, d] = c.dispatchDate.split('-').map(Number);
+                    const [h, min] = c.dispatchTime.split(':').map(Number);
+                    const dateObj = new Date(y, m - 1, d, h, min);
+                    const day = dateObj.getDay(); 
+                    const hour = h;
+
+                    // M-F (1-5)
+                    if (day >= 1 && day <= 5) {
+                        return (hour >= wdStart && hour < wdEnd);
+                    } 
+                    // S-S (0, 6)
+                    else {
+                        return (hour >= weStart && hour < weEnd);
+                    }
+                } catch(e) { return false; }
+            };
+
+            // 2. Top Natures
+            const wNatures = document.getElementById('widget-natures');
+            if (config.showNatures) {
+                wNatures.classList.remove('hidden');
+                
+                const natureCounts = {};
+                thisYearCalls.forEach(c => {
+                    const n = c.callNature || 'UNKNOWN';
+                    natureCounts[n] = (natureCounts[n] || 0) + 1;
+                });
+                
+                const sortedNatures = Object.entries(natureCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, limit); 
+
+                const natureListEl = document.getElementById('stats-natures');
+                natureListEl.innerHTML = '';
+                
+                if (sortedNatures.length === 0) {
+                    natureListEl.innerHTML = '<div class="text-gray-500 text-base italic">No data available</div>';
+                } else {
+                    const maxCount = sortedNatures[0][1];
+                    sortedNatures.forEach(([name, count]) => {
+                        const barWidth = (count / maxCount) * 100; 
+                        const row = document.createElement('div');
+                        row.innerHTML = `
+                            <div class="flex justify-between text-base mb-1 uppercase font-semibold text-gray-300">
+                                <span>${escapeHTML(name)}</span>
+                                <span>${count}</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-4">
+                                <div class="bg-blue-500 h-4 rounded-full transition-all duration-500 shadow-md shadow-blue-500/30" style="width: ${barWidth}%"></div>
+                            </div>
+                        `;
+                        natureListEl.appendChild(row);
+                    });
+                }
+            } else {
+                wNatures.classList.add('hidden');
+            }
+
+            // 3. Top Addresses
+            const wAddresses = document.getElementById('widget-addresses');
+            if (config.showAddresses) {
+                wAddresses.classList.remove('hidden');
+                const addressCounts = {};
+                thisYearCalls.forEach(c => {
+                    let addr = c.address ? c.address.trim().toUpperCase() : 'UNKNOWN';
+                    if (addr.includes('I 70')) addr = 'I 70'; 
+                    if (addr !== 'UNKNOWN' && addr !== '') addressCounts[addr] = (addressCounts[addr] || 0) + 1;
+                });
+
+                const sortedAddresses = Object.entries(addressCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, limit); 
+
+                const addrListEl = document.getElementById('stats-addresses');
+                addrListEl.innerHTML = '';
+
+                if (sortedAddresses.length === 0) {
+                    addrListEl.innerHTML = '<div class="text-gray-500 text-base italic">No data available</div>';
+                } else {
+                    const maxAddrCount = sortedAddresses[0][1];
+                    sortedAddresses.forEach(([addr, count]) => {
+                        const barWidth = (count / maxAddrCount) * 100;
+                        const row = document.createElement('div');
+                        row.innerHTML = `
+                            <div class="flex justify-between text-base mb-1 uppercase font-semibold text-gray-300">
+                                <span class="truncate pr-2" title="${escapeHTML(addr)}">${escapeHTML(addr)}</span>
+                                <span>${count}</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-4">
+                                <div class="bg-purple-500 h-4 rounded-full transition-all duration-500 shadow-md shadow-purple-500/30" style="width: ${barWidth}%"></div>
+                            </div>
+                        `;
+                        addrListEl.appendChild(row);
+                    });
+                }
+            } else {
+                wAddresses.classList.add('hidden');
+            }
+
+            // 4. Mutual Aid Breakdown
+            const wMutual = document.getElementById('widget-mutual');
+            if (config.showMutual) {
+                wMutual.classList.remove('hidden');
+                let givenCount = 0;
+                let receivedCount = 0;
+                // Breakdown vars
+                let givenDay = 0, givenVol = 0;
+                let receivedDay = 0, receivedVol = 0;
+
+                const givenDepts = Object.create(null);
+                const receivedDepts = Object.create(null);
+
+                thisYearCalls.forEach(c => {
+                    if (c.responseType === 'Fire') return;
+                    if (c.mutualAid) {
+                        const isDay = checkDayCrew(c);
+
+                        if (c.mutualAidType === 'Given') {
+                            givenCount++;
+                            if (isDay) givenDay++; else givenVol++;
+                        }
+                        if (c.mutualAidType === 'Received') {
+                            receivedCount++;
+                            if (isDay) receivedDay++; else receivedVol++;
+                        }
+                        const deptCounts = c.mutualAidType === 'Given' ? givenDepts
+                            : c.mutualAidType === 'Received' ? receivedDepts : null;
+                        if (c.mutualAidDept && deptCounts) {
+                            const depts = c.mutualAidDept.split(',').map(s => s.trim());
+                            depts.forEach(d => { if(d) deptCounts[d] = (deptCounts[d] || 0) + 1; });
+                        }
+                    }
+                });
+
+                document.getElementById('stat-ma-given').textContent = givenCount;
+                document.getElementById('stat-ma-received').textContent = receivedCount;
+                // Breakdown UI
+                document.getElementById('stat-ma-given-day').textContent = givenDay;
+                document.getElementById('stat-ma-given-vol').textContent = givenVol;
+                document.getElementById('stat-ma-received-day').textContent = receivedDay;
+                document.getElementById('stat-ma-received-vol').textContent = receivedVol;
+
+                [['given', givenDepts], ['received', receivedDepts]].forEach(([direction, counts]) => {
+                    const sortedDepts = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, limit);
+                    const deptListEl = document.getElementById(`stats-ma-depts-${direction}`);
+                    deptListEl.innerHTML = '';
+                    if (sortedDepts.length === 0) {
+                        deptListEl.innerHTML = '<li class="text-gray-500 text-base italic">No data available</li>';
+                    }
+                    sortedDepts.forEach(([name, count]) => {
+                        const li = document.createElement('li');
+                        li.className = "flex justify-between gap-2 border-b border-gray-700 py-2 last:border-0 items-center";
+                        li.innerHTML = `<span class="min-w-0 break-words uppercase font-medium">${escapeHTML(name)}</span> <span class="shrink-0 bg-gray-700 text-white text-sm px-3 py-1 rounded-full font-bold">${count}</span>`;
+                        deptListEl.appendChild(li);
+                    });
+                });
+            } else {
+                wMutual.classList.add('hidden');
+            }
+
+            // 5. Crew Analysis & Volunteer Stats
+            const wCrew = document.getElementById('widget-crew');
+            const wVolDispo = document.getElementById('widget-voldispo');
+
+            let dayCrewCount = 0;
+            let dayNoCrewCount = 0;
+            let coverage76Count = 0;
+            let volunteerCount = 0;
+            let volNoCrewCount = 0; // NEW: Track missed calls
+            const volDispCounts = { '2ND RUN': 0 };
+
+            document.getElementById('stats-sched-text-wd').textContent = `M-F: ${String(wdStart).padStart(2,'0')}:00 - ${String(wdEnd).padStart(2,'0')}:00`;
+            document.getElementById('stats-sched-text-we').textContent = `S-S: ${String(weStart).padStart(2,'0')}:00 - ${String(weEnd).padStart(2,'0')}:00`;
+
+            thisYearCalls.forEach(c => {
+                if (c.responseType === 'Fire') return;
+                const dispositions = getEmsDispositions(c.emsDisposition);
+                if (dispositions.includes('76 COVERAGE')) coverage76Count++;
+                
+                const isDayCrew = checkDayCrew(c);
+
+                if (isDayCrew) {
+                    dayCrewCount++;
+                    if (dispositions.includes('NO CREW/MA')) dayNoCrewCount++;
+                } else {
+                    volunteerCount++;
+                    if (dispositions.includes('NO CREW/MA')) volNoCrewCount++;
+                    (dispositions.length ? dispositions : ['NOT RECORDED']).forEach(disp => {
+                        volDispCounts[disp] = (volDispCounts[disp] || 0) + 1;
+                    });
+                }
+            });
+
+            if (config.showCrew) {
+                wCrew.classList.remove('hidden');
+                document.getElementById('stat-crew-day').textContent = dayCrewCount;
+                document.getElementById('stat-crew-vol').textContent = volunteerCount;
+                document.getElementById('stat-crew-76-coverage').textContent = coverage76Count;
+                document.getElementById('stat-crew-76-sunday').textContent = thisYearCalls.filter(c => c.is76Sunday === true).length;
+
+                const dayPct = dayCrewCount > 0
+                    ? (((dayCrewCount - dayNoCrewCount) / dayCrewCount) * 100).toFixed(0)
+                    : 0;
+                document.getElementById('stat-crew-day-pct').textContent = `${dayPct}% COVERED`;
+
+                // NEW: Calculate Percentage
+                const volPct = volunteerCount > 0 
+                    ? (((volunteerCount - volNoCrewCount) / volunteerCount) * 100).toFixed(0) 
+                    : 0;
+                document.getElementById('stat-crew-vol-pct').textContent = `${volPct}% COVERED`;
+
+                const combinedCount = dayCrewCount + volunteerCount;
+                const combinedPct = combinedCount > 0
+                    ? (((combinedCount - dayNoCrewCount - volNoCrewCount) / combinedCount) * 100).toFixed(0)
+                    : 0;
+                document.getElementById('stat-crew-combined').textContent = combinedCount;
+                document.getElementById('stat-crew-combined-pct').textContent = `${combinedPct}% COVERED`;
+
+            } else {
+                wCrew.classList.add('hidden');
+            }
+
+            if (config.showVolDispo) {
+                wVolDispo.classList.remove('hidden');
+                const volDispListEl = document.getElementById('stats-vol-dispo');
+                volDispListEl.innerHTML = '';
+                const sortedVolDisps = Object.entries(volDispCounts).sort((a, b) => b[1] - a[1]);
+
+                if (sortedVolDisps.length === 0) {
+                    volDispListEl.innerHTML = '<div class="text-gray-500 text-base italic">No data available</div>';
+                } else {
+                    const maxCount = sortedVolDisps[0][1];
+                    sortedVolDisps.forEach(([name, count]) => {
+                        const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                        const row = document.createElement('div');
+                        row.innerHTML = `
+                            <div class="flex justify-between text-base mb-1 uppercase font-semibold text-gray-300">
+                                <span>${escapeHTML(name)}</span>
+                                <span>${count}</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-4">
+                                <div class="bg-orange-500 h-4 rounded-full transition-all duration-500 shadow-md shadow-orange-500/30" style="width: ${barWidth}%"></div>
+                            </div>
+                        `;
+                        volDispListEl.appendChild(row);
+                    });
+                }
+            } else {
+                wVolDispo.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

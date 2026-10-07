@@ -1,45 +1,27 @@
-# RMS Call Tracker
+# AidPoint
 
-A static Fire/EMS incident tracker backed by Firebase Authentication and Firestore.
+AidPoint helps dispatchers and fire/EMS personnel find the nearest mutual aid resources to an incident location.
 
-## Files to publish
+Double-click **Start AidPoint.cmd** to open AidPoint in your browser. Keep the launcher window open while using the app. Node.js is required and is already installed on this computer.
 
-Upload all files in this folder to the root of the GitHub repository:
+Update `fd.addresses.csv` in this directory whenever needed, then refresh the browser page. The app reads the current file on every page load with caching disabled.
 
-- `index.html` — incident entry, history, CSV import/export, and statistics
-- `main.js` — application and Firebase logic
-- `ems-dispositions.js` — shared EMS disposition options and formatting
-- `styles.css` — shared interface styles
-- `config.html` — configuration screen
-- `kiosk.html` — read-only statistics display
-- `icon.png` — application icon
+The map highlights Clark County with a blue outline, a white halo, and a very light blue fill. `clark-county-boundary.geojson` contains the official [U.S. Census Bureau county boundary](https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1) (January 1, 2026 vintage; GEOID 39023). The supplied township file contains ten individual township boundaries; the county layer avoids displaying internal township or municipal edges as the county border. The outline stays on the map when searches are cleared.
 
-If GitHub Pages is enabled for the repository, the main tracker opens at the site root. The supporting screens are available at `/config.html` and `/kiosk.html`.
+The street-address field includes guidance to enter the street address first and add the city if the correct location is not found.
 
-## Firebase requirements
+The launcher starts a server accessible only on this computer. It serves the HTML, CSV, app icons, and app manifest. Browsers require this to automatically read the CSV; opening `index.html` directly displays instructions to use the launcher. Google Sheets and embedded station copies are no longer used.
 
-Anonymous Authentication must be enabled in the `pleasant-fire` Firebase project. Firestore must allow the intended users to access the `artifacts/pleasant-township-app/public/data` path.
+CSV columns must be `department,address,coordinates`. Quote any address containing commas, and quote coordinates as `"latitude,longitude"`. Invalid or missing coordinates are skipped.
 
-The Firebase web configuration in these static files identifies the Firebase project; it is not an administrator secret. Access control must be enforced with Firebase Authentication and Firestore Security Rules.
+An internet connection is still needed for the map, browser libraries, address lookup, and driving estimates.
 
-Before public deployment, review the Firestore rules carefully. In particular, do not grant unrestricted public writes to incident or configuration data. If configuration changes should be limited to administrators, enforce that in Security Rules rather than relying on the unlinked `config.html` address.
+The app includes an iPhone Home Screen icon and Android icons, including an adaptive icon, with the name **AidPoint**. The app manifest requests a standalone window. See `icon-design.md` for the artwork prompt and platform references. Deploy the HTML, CSV, county boundary GeoJSON, manifest, and three icon PNG files together when hosting the app.
 
-## Deployment note
+For phone use, AidPoint needs a phone-accessible web address; the desktop launcher address is limited to this computer. Use HTTPS when hosting it for installation. Home Screen metadata does not provide offline maps or routing, and no service worker caches station data.
 
-This version uses Tailwind's browser CDN to keep deployment file-only. It works on GitHub Pages, but the browser console will show Tailwind's production advisory. For a larger or long-term deployment, the next maintenance step should be compiling Tailwind into a local minified stylesheet so the app is less dependent on third-party CDNs.
+A small **Visits** badge appears at the bottom of the search panel. It uses [Hits](https://github.com/silentsoft/hits) to store a shared hit total, so it works on GitHub Pages without a server or account setup. It starts counting when added; it cannot recover past visits and is a hit estimate, not a count of unique people. Localhost previews use a separate preview counter. If the badge cannot load, it stays hidden and searches continue normally. Only the fixed site identifier is used; incident addresses are not part of the counter request, and the badge sends no page referrer.
 
-## CSV format
+For the hosted site, upload the updated `index.html` to the GitHub repository and let its normal deployment finish. No additional counter files are needed. Counter statistics are available at [Hits: AidPoint](https://hits.sh/615it.com/aidpoint/).
 
-Imports expect these columns in this order:
-
-`Incident #, Date/Time, Nature, Address, Type, Units, Mutual Aid, Disposition, Notes`
-
-EMS and Both calls allow multiple dispositions. Select all that apply in the new-call or edit form. Multiple selections use a semicolon in the existing Disposition column, for example `TRANSPORT; 2ND RUN`. Older single-disposition records remain supported. Filters match any selected disposition; disposition statistics count each selection, while crew totals count each incident once.
-
-Date/time values must use `MM/DD/YYYY HH:MM` with 24-hour time. Incident numbers must follow `YYPL#####` or `YYHT#####`. Invalid rows are skipped and counted in the confirmation message.
-
-## Verification
-
-Run `node --test tests/ems-dispositions.test.mjs` for disposition compatibility and text/CSV formatting checks.
-
-Run `node tests/ems-dispositions.browser.cjs` with Playwright available to Node and Microsoft Edge installed for the browser workflow checks. Set `PLAYWRIGHT_CHANNEL` to use another installed Chromium channel. These checks substitute sample data for Firebase, exercise creation, editing, validation, filters, CSV export/import, and both statistics screens, and never write to the live database.
+Run the behavior checks with `node --test tests/station-locator.test.cjs`. These checks use mocked browser libraries and network responses; they do not verify live external services.

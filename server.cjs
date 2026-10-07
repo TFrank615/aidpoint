@@ -8,6 +8,7 @@ function createServer() {
         '/': ['index.html', 'text/html; charset=utf-8'],
         '/index.html': ['index.html', 'text/html; charset=utf-8'],
         '/fd.addresses.csv': ['fd.addresses.csv', 'text/csv; charset=utf-8'],
+        '/clark-county-boundary.geojson': ['clark-county-boundary.geojson', 'application/geo+json; charset=utf-8'],
         '/apple-touch-icon.png': ['apple-touch-icon.png', 'image/png'],
         '/icon-192.png': ['icon-192.png', 'image/png'],
         '/icon-512.png': ['icon-512.png', 'image/png'],

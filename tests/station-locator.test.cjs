@@ -7,11 +7,12 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 const code = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const csv = fs.readFileSync(path.join(__dirname, '../fd.addresses.csv'), 'utf8');
+const countyBoundary = JSON.parse(fs.readFileSync(path.join(__dirname, '../clark-county-boundary.geojson'), 'utf8'));
 const settle = () => new Promise(resolve => setImmediate(resolve));
 const response = (body, status = 200) => ({ ok: status === 200, status, text: async () => typeof body === 'string' ? body : JSON.stringify(body) });
 
 // External browser libraries and DOM are mocked; execute the app's actual event handlers.
-function boot({ protocol = 'http:', fetch = async () => { throw new Error('Unexpected request'); }, stationFetch = async () => response(csv), parse } = {}) {
+function boot({ protocol = 'http:', hostname = '615it.com', fetch = async () => { throw new Error('Unexpected request'); }, stationFetch = async () => response(csv), boundaryFetch = async () => response(countyBoundary), parse } = {}) {
     const elements = new Map();
     function element(id = '') {
         const classes = new Set();
@@ -30,9 +31,12 @@ function boot({ protocol = 'http:', fetch = async () => { throw new Error('Unexp
         getElementById(id) { if (!elements.has(id)) elements.set(id, element(id)); return elements.get(id); },
         createElement: () => element(), createDocumentFragment: () => element()
     };
-    const map = { setView() { return this; }, fitBounds() {}, removeLayer() {} };
+    const boundaryLayers = [];
+    const removedLayers = [];
+    const map = { setView() { return this; }, fitBounds() {}, removeLayer(layer) { removedLayers.push(layer); } };
     const L = {
         map: () => map, tileLayer: () => ({ addTo() {} }), divIcon: options => options,
+        geoJSON: (data, options) => ({ data, options, addTo() { boundaryLayers.push(this); return this; } }),
         marker: location => ({ addTo() { return this; }, bindPopup() { return this; }, openPopup() { return this; }, getLatLng: () => ({ lat: location[0], lng: location[1] }) })
     };
     const Papa = { parse: parse || ((source, options) => {
@@ -46,19 +50,64 @@ function boot({ protocol = 'http:', fetch = async () => { throw new Error('Unexp
         });
         return { data, meta: { fields }, errors: [] };
     }) };
-    vm.runInNewContext(code, { document, window: { location: { protocol } }, L, Papa, fetch: (url, options) => url === './fd.addresses.csv' ? stationFetch(url, options) : fetch(url, options), AbortController, setTimeout, clearTimeout, console: { error() {}, warn() {} } });
+    vm.runInNewContext(code, { document, window: { location: { protocol, hostname } }, L, Papa, fetch: (url, options) => {
+        if (url === './fd.addresses.csv') return stationFetch(url, options);
+        if (url === './clark-county-boundary.geojson') return boundaryFetch(url, options);
+        return fetch(url, options);
+    }, AbortController, setTimeout, clearTimeout, console: { error() {}, warn() {} } });
     document.ready();
-    return { get: id => document.getElementById(id), elements };
+    return { get: id => document.getElementById(id), elements, boundaryLayers, removedLayers };
 }
 
 test('there is no upload control, Google Sheets URL, or embedded station copy', () => {
     assert.doesNotMatch(html, /station-file-input|bundled-station-csv|docs\.google\.com|loadSelectedStationFile/);
 });
 
+test('the county outline remains when clearing searches and does not intercept map interactions', async () => {
+    const app = boot();
+    await settle();
+    assert.equal(app.boundaryLayers.length, 2);
+    assert.equal(app.boundaryLayers[1].data.features[0].properties.GEOID, '39023');
+    assert.equal(app.boundaryLayers[1].options.interactive, false);
+    app.get('clear-button').events.click();
+    assert.equal(app.removedLayers.length, 0);
+    assert.equal(app.boundaryLayers.length, 2);
+});
+
+test('an unavailable county outline does not prevent loading stations or searching', async () => {
+    const app = boot({ boundaryFetch: async () => response('', 404) });
+    await settle();
+    assert.equal(app.boundaryLayers.length, 0);
+    assert.equal(app.get('search-button').disabled, false);
+    assert.match(app.get('status-message').textContent, /Loaded 42 stations/);
+});
+
 test('opening HTML directly explains how to load the local CSV', () => {
     const app = boot({ protocol: 'file:' });
     assert.equal(app.get('search-button').disabled, true);
     assert.match(app.get('status-message').textContent, /Open Start AidPoint\.cmd/);
+});
+
+test('the shared counter appears when loaded and its failure does not disable searching', async () => {
+    const app = boot();
+    await settle();
+    const badge = app.get('visit-counter-badge');
+    const footer = app.get('visit-counter');
+    assert.equal(new URL(badge.src).pathname, '/615it.com/aidpoint.svg');
+    assert.equal(footer.classList.contains('hidden'), true);
+    badge.events.load();
+    assert.equal(footer.classList.contains('hidden'), false);
+    badge.events.error();
+    assert.equal(footer.classList.contains('hidden'), true);
+    assert.equal(app.get('search-button').disabled, false);
+    assert.match(app.get('status-message').textContent, /Loaded 42 stations/);
+});
+
+test('local previews use a separate total and direct-file opening does not request a badge', () => {
+    const preview = boot({ hostname: '127.0.0.1' });
+    assert.equal(new URL(preview.get('visit-counter-badge').src).pathname, '/615it.com/aidpoint-preview.svg');
+    const file = boot({ protocol: 'file:' });
+    assert.equal(file.get('visit-counter-badge').src, undefined);
 });
 
 test('served app fetches the adjacent CSV without caching', async () => {
@@ -150,6 +199,12 @@ test('local server serves the CSV, manifest, and platform icons without exposing
         assert.equal(stationResponse.status, 200);
         assert.equal(stationResponse.headers.get('cache-control'), 'no-store');
         assert.equal(await stationResponse.text(), csv);
+        const countyResponse = await fetch(base + '/clark-county-boundary.geojson');
+        assert.equal(countyResponse.status, 200);
+        assert.match(countyResponse.headers.get('content-type'), /application\/geo\+json/);
+        const county = await countyResponse.json();
+        assert.equal(county.features[0].properties.GEOID, '39023');
+        assert.equal(county.features[0].geometry.type, 'Polygon');
         const pageResponse = await fetch(base + '/');
         assert.equal(await pageResponse.text(), html);
         const manifestResponse = await fetch(base + '/manifest.webmanifest');

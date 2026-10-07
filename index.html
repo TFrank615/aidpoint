@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AidPoint — Mutual Aid Finder</title>
+    <meta name="theme-color" content="#0b1f65">
+    <meta name="apple-mobile-web-app-title" content="AidPoint">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    <link rel="manifest" href="./manifest.webmanifest">
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- LeafletJS for the interactive map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- PapaParse for parsing station CSV data -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
+    <!-- Lucide Icons for UI elements -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom styles for the application */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent body scroll */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 10;
+        }
+        #ui-panel {
+            width: calc(100% - 2rem);
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 0.5rem;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- The map will fill this container -->
+    <div id="map"></div>
+    
+    <!-- UI Panel that floats over the map -->
+    <div id="ui-panel" class="absolute top-4 left-4 z-20 bg-white rounded-xl shadow-lg p-4 md:p-6 w-[95%] max-w-md max-h-[calc(100vh-2rem)] flex flex-col">
+        <header class="text-center mb-4">
+            <h1 class="text-2xl font-bold text-gray-900">AidPoint</h1>
+            <p class="text-gray-600 mt-1 text-sm">Find the nearest mutual aid resources to an incident.</p>
+        </header>
+
+        <!-- Search Form -->
+        <div id="search-form" class="space-y-3 flex-shrink-0">
+            <div>
+                <label for="address-street-input" class="block text-sm font-medium text-gray-700">Incident Street Address</label>
+                <input type="text" id="address-street-input" placeholder="e.g., 123 Main St" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label for="address-city-input" class="block text-sm font-medium text-gray-700">City</label>
+                    <input type="text" id="address-city-input" placeholder="e.g., Springfield" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                <div>
+                    <label for="address-state-input" class="block text-sm font-medium text-gray-700">State</label>
+                    <input type="text" id="address-state-input" value="Ohio" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" disabled>
+                </div>
+                <div>
+                    <label for="address-zip-input" class="block text-sm font-medium text-gray-700">Zip Code</label>
+                    <input type="text" id="address-zip-input" placeholder="e.g., 45504" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button id="search-button" class="flex-grow bg-blue-600 text-white px-5 py-3 rounded-lg font-semibold hover:bg-blue-700 transition shadow-sm flex items-center justify-center" disabled>
+                    <span id="search-text">Search</span>
+                    <div id="search-loader" class="loader hidden"></div>
+                </button>
+                <button id="clear-button" class="hidden bg-gray-200 text-gray-700 px-5 py-3 rounded-lg font-semibold hover:bg-gray-300 transition shadow-sm">
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Status/Info Messages -->
+        <div id="status-message" role="status" aria-live="polite" class="text-center p-4 rounded-lg bg-gray-50 text-gray-600 mt-4 flex-shrink-0">
+            Loading fire station data... Please wait.
+        </div>
+        
+        <!-- Results list container with its own scrollbar -->
+        <div id="results-container" class="mt-4 flex-grow overflow-y-auto pr-2">
+             <!-- Disclaimer -->
+            <div id="disclaimer" class="hidden text-sm p-3 mb-4 bg-yellow-100 text-yellow-800 rounded-lg flex items-start space-x-2">
+                 <div>
+                    <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <p><strong>Disclaimer:</strong> Driving distance and time are estimates and do not account for traffic or other real-time conditions. For informational purposes only.</p>
+            </div>
+            <!-- Results list -->
+            <div id="results-list" class="space-y-3">
+                <!-- Results will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- VARIABLES ---
+            const CSV_URL = './fd.addresses.csv';
+            let fireStations = [];
+            let map;
+            let userMarker;
+            let stationMarkers = [];
+            let isSearching = false;
+            let searchController;
+
+            // UI Elements
+            const addressStreetInput = document.getElementById('address-street-input');
+            const addressCityInput = document.getElementById('address-city-input');
+            const addressZipInput = document.getElementById('address-zip-input');
+            const searchButton = document.getElementById('search-button');
+            const searchLoader = document.getElementById('search-loader');
+            const searchText = document.getElementById('search-text');
+            const statusMessage = document.getElementById('status-message');
+            const resultsList = document.getElementById('results-list');
+            const disclaimer = document.getElementById('disclaimer');
+            const clearButton = document.getElementById('clear-button');
+            
+            // --- INITIALIZATION ---
+            
+            // Initialize the map, centered on Clark County, Ohio
+            map = L.map('map').setView([39.92, -83.81], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            loadAndProcessFireStations();
+
+            // --- EVENT LISTENERS ---
+            searchButton.addEventListener('click', handleSearch);
+            addressStreetInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
+            addressCityInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
+            addressZipInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSearch(); });
+            clearButton.addEventListener('click', handleClear);
+
+
+            // --- FUNCTIONS ---
+
+            /**
+             * Reads the current CSV from the same directory on every page load.
+             */
+            async function loadAndProcessFireStations() {
+                try {
+                    if (window.location.protocol === 'file:') {
+                        updateStatus('Open Start AidPoint.cmd to load the station list from this folder.', 'error');
+                        return;
+                    }
+                    const response = await fetchWithTimeout(CSV_URL, { cache: 'no-store' });
+                    if (!response.ok) throw new Error(`Station CSV returned HTTP ${response.status}.`);
+                    processStationCSV(await response.text());
+                } catch (error) {
+                    console.error('Error loading station CSV:', error);
+                    updateStatus(`Could not load fd.addresses.csv. ${error.message}`, 'error');
+                }
+            }
+
+            function processStationCSV(csv) {
+                const results = Papa.parse(csv, {
+                    header: true,
+                    skipEmptyLines: 'greedy',
+                    transformHeader: header => header.replace(/^\uFEFF/, '').trim().toLowerCase()
+                });
+                const requiredHeaders = ['department', 'address', 'coordinates'];
+                if (!requiredHeaders.every(header => results.meta.fields.includes(header))) {
+                    throw new Error('Station CSV must have department, address, and coordinates columns.');
+                }
+                if (results.errors.length) {
+                    throw new Error('The station CSV has invalid rows. Check its commas and quotation marks.');
+                }
+                const parsedStations = results.data.map(station => {
+                    const department = (station.department || '').trim();
+                    const address = (station.address || '').trim();
+                    const coordinates = (station.coordinates || '').trim();
+                    if (!department || !address || !coordinates) return null;
+                    const parts = coordinates.split(',');
+                    if (parts.length !== 2 || parts.some(part => !part.trim())) return null;
+                    const lat = Number(parts[0]);
+                    const lon = Number(parts[1]);
+                    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+                    return { name: department, address, location: { lat, lon } };
+                }).filter(Boolean);
+
+                if (!parsedStations.length) throw new Error('The station CSV contains no valid stations.');
+                fireStations = parsedStations;
+                updateStatus(`Loaded ${fireStations.length} stations. Enter an incident address to begin.`, 'info');
+                searchButton.disabled = false;
+            }
+
+            async function fetchWithTimeout(url, options = {}) {
+                const controller = new AbortController();
+                const abort = () => controller.abort();
+                const signal = options.signal;
+                if (signal?.aborted) controller.abort();
+                signal?.addEventListener('abort', abort, { once: true });
+                const timeout = setTimeout(abort, 15000);
+                try {
+                    const response = await fetch(url, { ...options, signal: controller.signal });
+                    // Read the body before releasing the timeout, too.
+                    const body = await response.text();
+                    return { ok: response.ok, status: response.status, text: async () => body, json: async () => JSON.parse(body) };
+                } catch (error) {
+                    if (signal?.aborted) throw error;
+                    if (controller.signal.aborted) throw new Error('The request timed out. Please try again.');
+                    throw error;
+                } finally {
+                    clearTimeout(timeout);
+                    signal?.removeEventListener('abort', abort);
+                }
+            }
+            
+            /**
+             * Converts a street address to geographic coordinates using Nominatim API.
+             * @param {string} address The address to geocode.
+             * @returns {Promise<object|null>} A promise resolving to location object or null.
+             */
+            async function geocodeAddress(address, signal) {
+                // Bounding box for Clark County, Ohio to bias the search results.
+                // Format: lon_min,lat_min,lon_max,lat_max
+                const clarkCountyViewbox = '-84.05,39.75,-83.55,40.10';
+                const endpoint = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&viewbox=${clarkCountyViewbox}`;
+                try {
+                    const response = await fetchWithTimeout(endpoint, { signal, headers: { 'Accept': 'application/json' }});
+                    if (!response.ok) {
+                        throw new Error(`Geocoding API returned an error: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    if (data && data.length > 0 && Number.isFinite(Number(data[0].lat)) && Number.isFinite(Number(data[0].lon))) {
+                        return {
+                            lat: parseFloat(data[0].lat),
+                            lon: parseFloat(data[0].lon),
+                            displayName: data[0].display_name
+                        };
+                    } else {
+                        return null; // No results found
+                    }
+                } catch (error) {
+                    console.error('Geocoding error:', error);
+                    throw error;
+                }
+            }
+            
+            /**
+             * Main handler for the search functionality.
+             */
+            async function handleSearch() {
+                if (isSearching || searchButton.disabled || !fireStations.length) return;
+                const street = addressStreetInput.value.trim();
+                const city = addressCityInput.value.trim();
+                const zip = addressZipInput.value.trim();
+                const state = 'Ohio';
+
+                if (!street) {
+                    updateStatus('Please enter at least a street address.', 'error');
+                    return;
+                }
+
+                // Intelligently build the address string from provided parts
+                const addressParts = [street, city, [state, zip].filter(Boolean).join(' ')];
+                const address = addressParts.filter(Boolean).join(', ');
+
+
+                const controller = new AbortController();
+                searchController = controller;
+                toggleLoading(true);
+                clearPreviousResults();
+                clearButton.classList.remove('hidden');
+                updateStatus(`Searching for address: ${address}...`, 'info');
+
+                try {
+                    const userLocation = await geocodeAddress(address, controller.signal);
+                    if (controller.signal.aborted) return;
+                    if (!userLocation) {
+                        throw new Error('Could not find coordinates for the entered address.');
+                    }
+
+                    updateStatus('Address found. Calculating distances...', 'info');
+
+                    // Step 1: Calculate straight-line distance to all stations to find candidates
+                    const stationsWithDistance = fireStations.map(station => ({
+                        ...station,
+                        distance: haversineDistance(userLocation.lat, userLocation.lon, station.location.lat, station.location.lon)
+                    }));
+
+                    // Step 2: Sort by straight-line distance and take the closest 50
+                    stationsWithDistance.sort((a, b) => a.distance - b.distance);
+                    const candidateStations = stationsWithDistance.slice(0, 50);
+
+                    // Step 3: Get actual driving details for the candidates
+                    const stationsWithDrivingData = await getDrivingDetails(candidateStations, userLocation, controller.signal);
+                    if (controller.signal.aborted) return;
+
+                    // Step 4: Sort the final list by actual driving time
+                    stationsWithDrivingData.sort((a, b) => a.drivingTime - b.drivingTime);
+                    
+                    const closestStations = stationsWithDrivingData.slice(0, 10);
+
+                    if (closestStations.length > 0) {
+                        displayResults(closestStations);
+                        updateMap(closestStations, userLocation);
+                        disclaimer.classList.remove('hidden');
+                        clearButton.classList.remove('hidden');
+                    } else {
+                        updateStatus('Could not calculate driving routes for nearby stations. Please try a different address.', 'error');
+                    }
+
+                } catch (error) {
+                    if (controller.signal.aborted) return;
+                    console.error('Search error:', error);
+                    updateStatus(`Search error: ${error.message}`, 'error');
+                } finally {
+                    if (searchController === controller) {
+                        searchController = null;
+                        toggleLoading(false);
+                    }
+                }
+            }
+
+            /**
+             * Resets the form and results to the initial state.
+             */
+            function handleClear() {
+                searchController?.abort();
+                searchController = null;
+                toggleLoading(false);
+                // Clear input fields
+                addressStreetInput.value = '';
+                addressCityInput.value = '';
+                addressZipInput.value = '';
+
+                // Clear map and results list
+                clearPreviousResults();
+
+                // Reset map view to default
+                map.setView([39.92, -83.81], 10);
+
+                // Hide the clear button again
+                clearButton.classList.add('hidden');
+            }
+
+            /**
+             * Gets driving distance and time for a subset of stations using the OSRM Table service (Matrix API).
+             * This is much faster as it uses a single API call.
+             * @param {array} stations - An array of candidate station objects.
+             * @param {object} userLocation - The user's location {lat, lon}.
+             * @returns {Promise<array>} A promise resolving to stations with drivingDistance and drivingTime.
+             */
+            async function getDrivingDetails(stations, userLocation, signal) {
+                if (stations.length === 0) {
+                    return [];
+                }
+                updateStatus(`Calculating driving routes for ${stations.length} nearby stations...`, 'info');
+
+                // OSRM wants coordinates as {longitude},{latitude}
+                const userCoord = `${userLocation.lon},${userLocation.lat}`;
+                const stationCoords = stations.map(s => `${s.location.lon},${s.location.lat}`);
+                
+                // Combine all coordinates, with the user's location being the first (index 0)
+                const allCoords = [userCoord, ...stationCoords].join(';');
+
+                // The source is the user's location (index 0)
+                const sources = '0';
+                // The destinations are all the stations (indices 1 to N)
+                const destinations = Array.from({ length: stations.length }, (_, i) => i + 1).join(';');
+
+                const endpoint = `https://router.project-osrm.org/table/v1/driving/${allCoords}?sources=${sources}&destinations=${destinations}&annotations=duration,distance`;
+
+                try {
+                    const response = await fetchWithTimeout(endpoint, { signal });
+                    if (!response.ok) {
+                        throw new Error(`Routing service is unavailable (HTTP ${response.status}). Please try again.`);
+                    }
+                    const data = await response.json();
+
+                    if (data.code !== 'Ok') {
+                        throw new Error(`Routing API could not process the request: ${data.code}`);
+                    }
+
+                    // data.durations[0] is an array of travel times from source 0 to all destinations
+                    // data.distances[0] is an array of distances from source 0 to all destinations
+                    const durations = data.durations?.[0];
+                    const distances = data.distances?.[0];
+                    if (!Array.isArray(durations) || !Array.isArray(distances) || durations.length !== stations.length || distances.length !== stations.length) {
+                        throw new Error('Routing service returned incomplete driving data. Please try again.');
+                    }
+
+                    const stationsWithDriving = stations.map((station, index) => {
+                        // If a route is not found, OSRM returns null. Handle this.
+                        if (!Number.isFinite(durations[index]) || !Number.isFinite(distances[index]) || durations[index] < 0 || distances[index] < 0) {
+                            return null;
+                        }
+
+                        return {
+                            ...station,
+                            drivingTime: durations[index] / 60, // seconds to minutes
+                            drivingDistance: distances[index] * 0.000621371, // meters to miles
+                        };
+                    }).filter(s => s !== null); // Filter out stations for which no route was found
+
+                    return stationsWithDriving;
+
+                } catch (error) {
+                    console.error('Routing Matrix API error:', error);
+                    throw error;
+                }
+            }
+
+            /**
+             * Calculates the Haversine (straight-line) distance between two points on Earth.
+             * @returns {number} The distance in miles.
+             */
+            function haversineDistance(lat1, lon1, lat2, lon2) {
+                const R = 3958.8; // Radius of Earth in miles
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            }
+
+            /**
+             * Displays the closest stations in the results list.
+             */
+            function displayResults(stations) {
+                resultsList.innerHTML = '';
+                if (stations.length === 0) {
+                    updateStatus('No nearby stations with valid driving routes were found.', 'info');
+                    return;
+                }
+
+                statusMessage.style.display = 'none';
+
+                const fragment = document.createDocumentFragment();
+                stations.forEach((station, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'p-4 border rounded-lg hover:bg-gray-50 transition cursor-pointer';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h3 class="font-bold text-lg text-blue-700">${index + 1}. ${escapeHTML(station.name)}</h3>
+                                <p class="text-gray-600 text-sm">${escapeHTML(station.address)}</p>
+                            </div>
+                            <div class="text-right ml-4">
+                                <p class="text-xl font-semibold text-gray-800">${station.drivingDistance.toFixed(1)} mi</p>
+                                <p class="text-sm text-gray-500">${station.drivingTime.toFixed(0)} min drive</p>
+                            </div>
+                        </div>
+                    `;
+                    div.addEventListener('click', () => {
+                        map.setView([station.location.lat, station.location.lon], 15);
+                        // Find the correct marker to open popup
+                        const correspondingMarker = stationMarkers.find(m => 
+                            m.getLatLng().lat === station.location.lat && m.getLatLng().lng === station.location.lon
+                        );
+                        if (correspondingMarker) {
+                            correspondingMarker.openPopup();
+                        }
+                    });
+                    fragment.appendChild(div);
+                });
+                resultsList.appendChild(fragment);
+            }
+
+            /**
+             * Updates the map with markers for the user and stations.
+             */
+            function updateMap(stations, userLocation) {
+                // Custom Icons
+                const userIcon = L.divIcon({
+                    html: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+                    className: 'bg-transparent',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32]
+                });
+                 const fireStationIcon = L.divIcon({
+                    html: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#c2410c" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-flame"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+                    className: 'bg-transparent',
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 32],
+                 });
+
+                // Add user marker
+                userMarker = L.marker([userLocation.lat, userLocation.lon], { icon: userIcon })
+                    .addTo(map)
+                    .bindPopup(`<b>Incident Location</b><br>${escapeHTML(userLocation.displayName)}`)
+                    .openPopup();
+
+                // Add station markers
+                const bounds = [[userLocation.lat, userLocation.lon]];
+                stations.forEach((station, index) => {
+                    const marker = L.marker([station.location.lat, station.location.lon], { icon: fireStationIcon })
+                        .addTo(map)
+                        .bindPopup(`<b>${index + 1}. ${escapeHTML(station.name)}</b><br>${escapeHTML(station.address)}<br>~${station.drivingDistance.toFixed(1)} miles / ${station.drivingTime.toFixed(0)} min drive`);
+                    stationMarkers.push(marker);
+                    bounds.push([station.location.lat, station.location.lon]);
+                });
+                
+                // Fit map to show all markers
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+            /**
+             * Clears results from the list and map.
+             */
+            function clearPreviousResults() {
+                resultsList.innerHTML = '';
+                disclaimer.classList.add('hidden');
+                statusMessage.style.display = 'block';
+                statusMessage.textContent = 'Enter an incident address to begin.';
+                statusMessage.className = 'text-center p-4 rounded-lg bg-gray-50 text-gray-600';
+                
+                if (userMarker) {
+                    map.removeLayer(userMarker);
+                    userMarker = null;
+                }
+                stationMarkers.forEach(marker => map.removeLayer(marker));
+                stationMarkers = [];
+            }
+
+            function escapeHTML(value) {
+                return String(value).replace(/[&<>"']/g, character => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                })[character]);
+            }
+
+            /**
+             * Toggles the loading state of the search button.
+             */
+            function toggleLoading(isLoading) {
+                isSearching = isLoading;
+                searchButton.disabled = isLoading || !fireStations.length;
+                if (isLoading) {
+                    searchText.classList.add('hidden');
+                    searchLoader.classList.remove('hidden');
+                } else {
+                    searchText.classList.remove('hidden');
+                    searchLoader.classList.add('hidden');
+                }
+            }
+            
+            /**
+             * Updates the status message banner.
+             * @param {string} message - The message to display.
+             * @param {'info'|'error'} type - The type of message.
+             */
+            function updateStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.style.display = 'block';
+                if (type === 'error') {
+                    statusMessage.className = 'text-center p-4 rounded-lg bg-red-100 text-red-800';
+                } else {
+                    statusMessage.className = 'text-center p-4 rounded-lg bg-blue-100 text-blue-800';
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
+
+
+
